@@ -4,14 +4,14 @@ from tqdm import tqdm
 
 import torch
 
-from yolox.utils import (
-    gather,
-    is_main_process,
-    postprocess,
-    synchronize,
-    time_synchronized,
-    xyxy2xywh
-)
+# from yolox.utils import (
+#     gather,
+#     is_main_process,
+#     postprocess,
+#     synchronize,
+#     time_synchronized,
+#     xyxy2xywh
+# )
 
 import contextlib
 import io
@@ -25,21 +25,25 @@ import torch.nn.functional as F
 from torch.optim import Adam
 import cv2
 
-import sys
 import torchvision
 
 from pathlib import Path
 
-YOLOV5_FILE = Path(f"../model/yolov5").resolve()
+import sys
+YOLOV5_FILE = Path(f"../../yolov5").resolve()
 if str(YOLOV5_FILE) not in sys.path:
     sys.path.append(str(YOLOV5_FILE))  # add ROOT to PATH
+    
 from models.common import DetectMultiBackend
 from utils.general import Profile, non_max_suppression
+from torchvision.utils import save_image
 
 from PIL import Image
 import logging
 
 def create_logger(module, filename, level):
+    # os.makedirs(logger_path, exist_ok=True)
+
     # Create a formatter for the logger, setting the format of the log with time, level, and message
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     
@@ -65,9 +69,9 @@ def generate_mask(outputs, x_shape, y_shape): # 第一次推理后生成 mask
     conf_thres = 0.0 # confidence threshold # lifang535
     iou_thres = 0.0  # NMS IOU threshold
     max_det = 1000   # maximum detections per image
-    outputs = non_max_suppression(prediction=outputs, conf_thres=conf_thres, iou_thres=iou_thres, max_det=max_det)
-    outputs = outputs[0]
+    # outputs = non_max_suppression(prediction=outputs, conf_thres=conf_thres, iou_thres=iou_thres, max_det=max_det)
     
+    outputs = outputs["boxes"]
     x_len = int(x_shape / mask_x)
     y_len = int(y_shape / mask_y)
     if outputs is not None:
@@ -151,16 +155,17 @@ def run_attack(outputs,bx, strategy, max_tracker_num, mask):
     per_num_m = (50*90)/max_tracker_num
     per_num_s = (100*180)/max_tracker_num
 
-    outputs = outputs[0][0]
-    scores = outputs[:,5] * outputs[:,4]
-
+    # outputs = outputs[0][0]
+    scores = outputs["scores"]
+    # pdb.set_trace()
     loss2 = 40*torch.norm(bx, p=2)
     # targets = torch.ones_like(scores)
     targets = torch.zeros_like(scores)
     loss3 = F.mse_loss(scores, targets, reduction='sum')
     # loss = loss3#+loss2 # lifang535 remove
     loss = loss3+2*(10000-loss2) # lifang535 add: 可以实现 loss2 的效果; 在相同 loss2 的情况下，overload_attack 似乎比 phantom_attack 效果差（好吧不一定，似乎可以调整）
-    
+    # TODO:
+    # RQ 1.2: Why small threshold is impractical to mitigate efficiency degradation? (Sec. 3.3)
     loss.requires_grad_(True)
     loss.backward(retain_graph=True)
     
@@ -168,10 +173,38 @@ def run_attack(outputs,bx, strategy, max_tracker_num, mask):
     bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
     bx.data = -3.5 * mask * bx.grad+ bx.data
     count = (scores >= 0.25).sum() # original: > 0.3
-    print('loss',loss.item(),'loss_2',loss2.item(),'loss_3',loss3.item(),'count:',count.item())
+    if __name__ == "__main__":
+        print(f"loss: {loss.item():.4f}, loss_2: {loss2.item():.4f}, loss_3: {loss3.item():.4f} \ncount: {count.item()}\n")
     return bx
 
+def _run_attack(outputs,result,bx, strategy, max_tracker_num, mask):
 
+    per_num_b = (25*45)/max_tracker_num
+    per_num_m = (50*90)/max_tracker_num
+    per_num_s = (100*180)/max_tracker_num
+
+    # scores = outputs[:,5] * outputs[:,4] # remove
+    
+    scores = result["scores"] # add
+    
+    loss2 = 40*torch.norm(bx, p=2)
+    targets = torch.ones_like(scores)
+    loss3 = F.mse_loss(scores, targets, reduction='sum')
+    #TODO:
+    #dynamic loss 3
+    loss = loss3 * 100 + loss2
+    # loss = loss3+2*(10000-loss2)
+    loss.requires_grad_(True)
+    loss.backward(retain_graph=True)
+    
+    bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
+    # bx.data = -3.5 * mask * bx.grad+ bx.data
+    bx.data = torch.clamp(-3.5 * mask * bx.grad+ bx.data, min=-0.2, max=0.2)
+    count = (scores > 0.9).sum()
+    if __name__ == "__main__":
+      pass
+    print(f"loss: {loss.item():.4f}, loss_2: {loss2.item():.4f}, loss_3: {loss3.item():.4f}, count: {count.item()}")
+    return bx, count.item()
 
 class OverloadAttack:
     """
@@ -180,7 +213,7 @@ class OverloadAttack:
     """
 
     def __init__(
-        self, image_list, image_name_list, img_size):
+        self, image_list, image_name_list, img_size, results_dict = {}, epochs=-1, device=None):
         """
         Args:
             dataloader (Dataloader): evaluate dataloader.
@@ -193,18 +226,24 @@ class OverloadAttack:
         self.image_list = image_list
         self.image_name_list = image_name_list
         self.img_size = img_size
-        
         self.dataloader = None
         self.confthre = None
         self.nmsthre = None
         self.num_classes = None
         self.args = None
 
+        self.epochs = epochs
+        self.device = device  
+        self.results_dict = results_dict    
+        self.image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
+        self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(self.device)
+        self.model.eval()
+        self.names = CONSTANTS.DETR_DICT
+
     def evaluate(
         self,
         imgs,
         image_name,
-        
         distributed=False,
         half=False,
         trt_file=None,
@@ -212,7 +251,7 @@ class OverloadAttack:
         test_size=None,
         result_folder=None
     ):
-        global model, names
+        # global model, names
         """
         COCO average precision (AP) Evaluation. Iterate inference on the test dataset
         and the results are evaluated by COCO API.
@@ -229,68 +268,87 @@ class OverloadAttack:
         """
         # TODO half to amp_test
         tensor_type = torch.cuda.HalfTensor if half else torch.cuda.FloatTensor
-        model = model.eval()
-        if half:
-            model = model.half()
         ids = []
         data_list = []
         results = []
         video_names = defaultdict()
-        progress_bar = tqdm if is_main_process() else iter
+        # progress_bar = tqdm if is_main_process() else iter
 
-        if trt_file is not None:
-            from torch2trt import TRTModule
+        # if trt_file is not None:
+        #     from torch2trt import TRTModule
 
-            model_trt = TRTModule()
-            model_trt.load_state_dict(torch.load(trt_file))
+        #     model_trt = TRTModule()
+        #     model_trt.load_state_dict(torch.load(trt_file))
 
-            x = torch.ones(1, 3, test_size[0], test_size[1]).cuda()
-            model(x)
-            model = model_trt
+        #     x = torch.ones(1, 3, test_size[0], test_size[1]).cuda()
+        #     model(x)
+        #     model = model_trt
             
         frame_id = 0
         total_l1 = 0
         total_l2 = 0
         strategy = 0
         max_tracker_num = int(15)
-        rgb_means=torch.tensor((0.485, 0.456, 0.406)).view(1, 3, 1, 1).to(device)
-        std=torch.tensor((0.229, 0.224, 0.225)).view(1, 3, 1, 1).to(device)
-        # for cur_iter, (imgs, path) in enumerate(
-        #     progress_bar(self.dataloader)
-        #     ):
-            # print('strategy:',strategy)
-            # print(path)
-            
-        frame_id += 1
+        
+        rgb_means=torch.tensor((0.485, 0.456, 0.406)).view(1, 3, 1, 1).to(self.device)
+        std=torch.tensor((0.229, 0.224, 0.225)).view(1, 3, 1, 1).to(self.device)
+
+        # image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
+        inputs = self.image_processor(images=imgs, return_tensors="pt").to(self.device)
+        imgs = inputs["pixel_values"]
+        # save_image(imgs, "./1.png")
+        # a = util.denormalize(imgs)
+        # pdb.set_trace()
+        # if len(imgs.shape) == 3:
+        #     imgs = imgs[None]
+
+        # frame_id += 1
         bx = np.zeros((imgs.shape[1], imgs.shape[2], imgs.shape[3]))
         bx = bx.astype(np.float32)
-        bx = torch.from_numpy(bx).to(device).unsqueeze(0)
+        bx = torch.from_numpy(bx).to(self.device).unsqueeze(0)
         bx = bx.data.requires_grad_(True)
-        imgs = imgs.type(tensor_type)
-        imgs = imgs.to(device)
+        # imgs = imgs.type(tensor_type)
+        # imgs = imgs.to(device)
         #(1,23625,6)
         
-        for iter in tqdm(range(epochs)):
+        # model = model.eval()
+        # if half:
+        #     model = model.half()
+        imgs = util.denormalize(imgs)
+        for iter in tqdm(range(self.epochs)):
             added_imgs = imgs+bx
-            
             l2_norm = torch.sqrt(torch.mean(bx ** 2))
             l1_norm = torch.norm(bx, p=1)/(bx.shape[3]*bx.shape[2])
             added_imgs.clamp_(min=0, max=1)
-            input_imgs = (added_imgs - rgb_means)/std # lifang535: 不理解
-            if half:
-                input_imgs = input_imgs.half()
+            # input_imgs = (added_imgs - rgb_means)/std 
+            # pdb.set_trace()
+            # if half:
+            #     input_imgs = input_imgs.half()
             # outputs = model(input_imgs)[0] # lifang535 remove
             # outputs = model(input_imgs) # lifang535 add
-            outputs = model(added_imgs) # lifang535 add
-            if iter == 0:
-                mask = generate_mask(outputs,added_imgs.shape[3],added_imgs.shape[2]).to(device)
-            bx = run_attack(outputs,bx, strategy, max_tracker_num, mask)
+            # result = model(input_imgs)
+            result = self.model(added_imgs) 
+            
+            target_size = [imgs.shape[2:] for _ in range(1)]
+            outputs = self.image_processor.post_process_object_detection(result, 
+                                                                    threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                    target_sizes = target_size)[0]
 
+    
+            if iter == 0:
+                mask = generate_mask(outputs,added_imgs.shape[3],added_imgs.shape[2]).to(self.device)
+                clean_bbox_scores = outputs["scores"]
+                clean_bbox_count = (clean_bbox_scores > 0.9).sum()
+            # bx = run_attack(outputs, bx, strategy, max_tracker_num, mask)
+            bx, bbox_count = _run_attack(None, outputs, bx, strategy, max_tracker_num, mask)
+        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(clean_bbox_count.item()), "corrupted_bbox_num": bbox_count}
+        # pdb.set_trace()
+        
         if strategy == max_tracker_num-1:
             strategy = 0
         else:
             strategy += 1
-        print(added_imgs.shape)
+        # print(added_imgs.shape)
         added_blob = torch.clamp(added_imgs*255,0,255).squeeze().permute(1, 2, 0).detach().cpu().numpy()
         added_blob = added_blob[..., ::-1]
         # added_blob_2 = added_blob_2[..., ::-1]
@@ -327,25 +385,25 @@ class OverloadAttack:
         # infer_image(added_blob)
         """
         
-        input_path = f"{input_dir}/{image_name}"
-        output_path = f"{output_dir}/{image_name}"
-        cv2.imwrite(output_path, added_blob)
+        # input_path = f"{input_dir}/{image_name}"
+        # output_path = f"{output_dir}/{image_name}"
+        # cv2.imwrite(output_path, added_blob)
         
         # time.sleep(10000000)
         
         
-        print(l1_norm.item(),l2_norm.item())
+        # print(l1_norm.item(),l2_norm.item())
         total_l1 += l1_norm
         total_l2 += l2_norm
         mean_l1 = total_l1/frame_id
         mean_l2 = total_l2/frame_id
-        print(mean_l1.item(),mean_l2.item())
+        # print(mean_l1.item(),mean_l2.item())
         
-        print(f"saved image to {output_path}")
-        objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms = infer(input_path)
-        _objects_num_before_nms, _objects_num_after_nms, _person_num_after_nms, _car_num_after_nms = infer(output_path)
+        # print(f"saved image to {output_path}")
+        # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms = infer(input_path)
+        # _objects_num_before_nms, _objects_num_after_nms, _person_num_after_nms, _car_num_after_nms = infer(output_path)
         
-        logger.info(f"objects_num_before_nms: {objects_num_before_nms}, objects_num_after_nms: {objects_num_after_nms}, person_num_after_nms: {person_num_after_nms}, car_num_after_nms: {car_num_after_nms} -> _objects_num_before_nms: {_objects_num_before_nms}, _objects_num_after_nms: {_objects_num_after_nms}, _person_num_after_nms: {_person_num_after_nms}, _car_num_after_nms: {_car_num_after_nms}")
+        # logger.info(f"objects_num_before_nms: {objects_num_before_nms}, objects_num_after_nms: {objects_num_after_nms}, person_num_after_nms: {person_num_after_nms}, car_num_after_nms: {car_num_after_nms} -> _objects_num_before_nms: {_objects_num_before_nms}, _objects_num_after_nms: {_objects_num_after_nms}, _person_num_after_nms: {_person_num_after_nms}, _car_num_after_nms: {_car_num_after_nms}")
         # infer(output_path_tiff)
         
         del bx
@@ -354,7 +412,7 @@ class OverloadAttack:
         
         del added_imgs
         del mask
-        del input_imgs
+        # del input_imgs
         del added_blob
         del l1_norm
         del l2_norm
@@ -397,12 +455,23 @@ class OverloadAttack:
         """
         Run the evaluation.
         """
-        global model, device, names
+        # global model, device, names
         device_id = 0
-        for image, image_name in zip(self.image_list, self.image_name_list):
+        for index, example in tqdm(enumerate(self.image_list), total=self.image_list.__len__(), desc="Processing COCO data"):
+            
+            image_id, image, width, height, bbox_id, category, gt_boxes, area = util.parse_example(example)
+            assert len(bbox_id) == len(category) == len(gt_boxes) == len(area)
+            
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+            
+            
+            mean_l1, mean_l2 = self.evaluate(image, image_id)
+            
+            continue
             image = image.transpose((2, 0, 1))[::-1]
             image = np.ascontiguousarray(image)
-            image = torch.from_numpy(image).to(device).float()
+            image = torch.from_numpy(image).to(self.device).float()
             image /= 255.0
 
             if len(image.shape) == 3:
@@ -410,7 +479,7 @@ class OverloadAttack:
 
             # print(f"image.shape = {image.shape}")
             
-            mean_l1, mean_l2 = self.evaluate(image, image_name)
+            mean_l1, mean_l2 = self.evaluate(image, image_id)
             
             # lifang535: 更换 device
             device_id += 1
@@ -603,7 +672,26 @@ def dir_process(dir_path):
 
     return image_list, image_name_list
 
+def _dir_process(img_list_len=None):
+    if not img_list_len:
+        img_list_len = CONSTANTS.VAL_SUBSET_SIZE
+    print(f"using img list length: {img_list_len}")    
+    coco_data = load_dataset("detection-datasets/coco", split="val")
+    random.seed(42)
+    random_indices = random.sample(range(len(coco_data)), img_list_len)
+    coco_data = coco_data.select(random_indices)
+    
+    return coco_data
 
+import CONSTANTS
+import random
+from datasets import load_dataset
+from transformers import DetrConfig, DetrForObjectDetection, DetrImageProcessor
+from transformers import AutoImageProcessor
+import pdb
+import util
+import old_overload
+random.seed(42)
 if __name__ == "__main__":
     # image_name = "000001.png"
     # input_path = f"original_image/{image_name}"
@@ -615,40 +703,43 @@ if __name__ == "__main__":
     # infer(output_path)
     # time.sleep(10000000)
 
-    weights = "../model/yolov5/yolov5n.pt" # yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
-    device = torch.device('cuda:0')
-    model = DetectMultiBackend(weights=weights, device=device)
-    names = model.names
-    print(f"names = {names}")
+    # weights = "../model/yolov5/yolov5n.pt"
+    # device = torch.device('cuda:0')
+    # model = DetectMultiBackend(weights=weights, device=device)
+    # names = model.names
+    # print(f"names = {names}")
     
-    attack_object_key = 0 # 0: person, 2: car
+    device = torch.device('cuda:1')
+    image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
+    model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(device)
+    model.eval()
+    names = CONSTANTS.DETR_DICT
+    # pdb.set_trace()
+    
+    attack_object_key = 1 # 1: person, 3: car, 22: elephant, 25: giraffe
     attack_object = names[attack_object_key]
+    
     index = 5 + attack_object_key # yolov5 输出的结果中，class confidence 对应的 index
 
-    epochs = 2000
+    epochs = 200
     
-    # lifang535: !!!
     logger_path = f"log/overload_attack/overload_attack_{attack_object}_epochs_{epochs}.log"
-    logger = create_logger(f"overload_attack_{attack_object}_epochs_{epochs}", logger_path, logging.INFO)
-    
-    # logger = create_logger(f"_overload_attack_{attack_object}_epochs_{epochs}", f"_overload_attack_{attack_object}_epochs_{epochs}.log", logging.INFO)
-        
-    
-    input_dir = "original_image" # lifang535: !!!
+    logger = create_logger(f"overload_attack_{attack_object}_epochs_{epochs}", logger_path, logging.INFO)        
     output_dir = f"overload_attack_image/{attack_object}_epochs_{epochs}"
     
     # start_time = time.time()
     
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    # if not os.path.exists(output_dir):
+    #     os.makedirs(output_dir)
     
     img_size = (608, 1088)
-    image_list, image_name_list = dir_process(input_dir)
+    image_list = _dir_process(50)
     
     oa = OverloadAttack(
         image_list=image_list,
-        image_name_list=image_name_list,
-        img_size=img_size,
+        image_name_list=None,
+        img_size=None,
+        epochs=epochs
     )
     
     oa.run()

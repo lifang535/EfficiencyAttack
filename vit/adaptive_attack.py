@@ -93,32 +93,78 @@ def xywh2xyxy(x):
     y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
     return y
 
+epoch_id = 0 # lifang535: for new attack
+
+def threshold_fitting(scores, height, width, area_thres=900, height_max=1088, width_max=608):
+    # 把 area 小于 area_thres 的 box 的 score 设为 0，height 和 width 设为 height_max 和 width_max
+    # scores.shape = torch.Size([40698]), height.shape = torch.Size([40698]), width.shape = torch.Size([40698])
+    for i in range(len(scores)):
+        if height[i] * width[i] < area_thres:
+            scores[i] = 0
+            height[i] = height_max
+            width[i] = width_max
+    return scores, height, width
+    
+
 def run_attack(outputs,bx, strategy, max_tracker_num, adam_opt):
+    global epoch_id
+    
     outputs = outputs[0][0] # lifang535 add
     
     per_num_b = (25*45)/max_tracker_num
     per_num_m = (50*90)/max_tracker_num
     per_num_s = (100*180)/max_tracker_num
 
-    scores = outputs[:,5] * outputs[:,4]
+    scores = outputs[:,index] * outputs[:,4]
     height = outputs[:,2]
     width = outputs[:,3]
+    
+    # print(f"scores.shape = {scores.shape}, height.shape = {height.shape}, width.shape = {width.shape}")
+    
+    # Adaptive attack for threshold
+    # scores, height, width = threshold_fitting(scores, height, width)
+    
+    # # 下面的代码速度慢
+    # for i in range(len(scores)):
+    #     if height[i] * width[i] < 900:
+    #         scores[i] = 0.0
+    #         # height[i] = 1088
+    #         # width[i] = 608
+    
+    # # 下面的代码速度慢
+    # sel_aaa_1 = []
+    # for i in range(len(scores)):
+    #     sel_aaa_1.append((width[i]/1088) * (height[i]/608))
+    
+    # # scores 加快速度，根据 area_thres 选取 box
+    # scores_1 = scores[height * width >= 900]
+    # scores_2 = scores[height * width < 900]
+    # scores = torch.cat((scores_1, torch.zeros_like(scores_2)), dim=0)
 
-    sel_scores_b = scores[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
-    sel_scores_m = scores[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
-    sel_scores_s = scores[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
-    sel_height_b = height[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
-    sel_height_m = height[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
-    sel_height_s = height[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
-    sel_width_b = width[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
-    sel_width_m = width[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
-    sel_width_s = width[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
 
-
-    sel_dets = torch.cat((sel_scores_b, sel_scores_m, sel_scores_s), dim=0)
-    sel_height = torch.cat((sel_height_b, sel_height_m, sel_height_s), dim=0)
-    sel_width = torch.cat((sel_width_b, sel_width_m, sel_width_s), dim=0)
-    sel_aaa = (sel_width/640) * (sel_height/640)
+    # sel_scores_b = scores[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
+    # sel_scores_m = scores[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
+    # sel_scores_s = scores[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
+    # sel_height_b = height[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
+    # sel_height_m = height[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
+    # sel_height_s = height[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
+    # sel_width_b = width[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
+    # sel_width_m = width[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
+    # sel_width_s = width[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
+    # sel_dets = torch.cat((sel_scores_b, sel_scores_m, sel_scores_s), dim=0)
+    # sel_height = torch.cat((sel_height_b, sel_height_m, sel_height_s), dim=0)
+    # sel_width = torch.cat((sel_width_b, sel_width_m, sel_width_s), dim=0)
+    # sel_aaa = (sel_width/640) * (sel_height/640)
+    
+    # print(f"scores.shape = {scores.shape}, height.shape = {height.shape}, width.shape = {width.shape}")
+    # print(f"sel_dets.shape = {sel_dets.shape}, sel_height.shape = {sel_height.shape}, sel_width.shape = {sel_width.shape}, sel_aaa.shape = {sel_aaa.shape}")
+    # time.sleep(5)
+    
+    sel_dets = scores
+    sel_height = height
+    sel_width = width
+    sel_aaa = (sel_width/1088) * (sel_height/608)
+    
     loss4 = 100*torch.sum(sel_aaa) # lifang535: 相较于 stra_attack，这里的 loss4 是对所有的 box 的面积求和
     targets = torch.ones_like(sel_dets)
     loss1 = 10*(F.mse_loss(sel_dets, targets, reduction='sum')) # lifang535: 和 feature matching 有关
@@ -128,7 +174,12 @@ def run_attack(outputs,bx, strategy, max_tracker_num, adam_opt):
     loss3 = 1.0*(F.mse_loss(scores, targets, reduction='sum'))
     # loss = loss1+loss4#+loss3#+loss2 # lifang535 remove
     # loss = loss1+loss4+loss3+loss2 # lifang535 add
-    loss = loss1+loss4+loss3+10*loss2 # lifang535 add
+    # loss = loss3
+    if epoch_id <= 50:  # lifang535: for new attack
+        loss = loss3 # lifang535 add # lifang535: for new attack
+    else:  # lifang535: for new attack
+        loss = loss4+10*loss3+10*loss2  # lifang535: for new attack
+    # loss = loss1+loss4+loss3+10*loss2 # lifang535 add
     
     loss.requires_grad_(True)
     adam_opt.zero_grad()
@@ -140,6 +191,114 @@ def run_attack(outputs,bx, strategy, max_tracker_num, adam_opt):
     count = (scores > 0.25).sum()
     print('loss',loss.item(),'loss_1',loss1.item(),'loss_2',loss2.item(),'loss_3',loss4.item(),'count:',count.item())
     return bx
+
+global_std = 1.0
+
+def add_gaussian_noise(tensor, mean=0.0, std=1.0):
+    # print(f"tensor: {tensor}")
+    
+    global global_std
+    global_std += 1
+    global_std = global_std % 100 + 1
+    print(f"global_std = {global_std}")
+    std = global_std
+    
+    noise = torch.randn_like(tensor) * std + mean
+    # print(f"noise: {noise}")
+    noise /= 255.0
+    # print(f"noise: {noise}")
+    # time.sleep(5)
+    noisy_tensor = tensor + noise
+    return noisy_tensor
+
+global_kernel_size = 1
+
+def add_spatial_smoothing(images, kernel_size=3):
+# def add_spatial_smoothing(images):
+    """
+    对输入图像进行空间平滑处理
+    参数:
+    - images: 输入图像的张量 (N, C, H, W)
+    - kernel_size: 平滑滤波器的大小，默认为3
+    
+    返回值:
+    - 平滑后的图像张量
+    """
+    global global_kernel_size
+    global_kernel_size += 1
+    global_kernel_size = global_kernel_size % 10 + 1
+    print(f"global_kernel_size = {global_kernel_size}")
+    kernel_size = global_kernel_size
+    
+    # 构建一个均值滤波器核
+    padding = kernel_size // 2
+    smoothing_filter = torch.ones((images.shape[1], 1, kernel_size, kernel_size), device=images.device) / (kernel_size * kernel_size)
+    
+    # 对每个通道进行卷积操作实现空间平滑
+    smoothed_images = F.conv2d(images, smoothing_filter, padding=padding, groups=images.shape[1])
+    
+    return smoothed_images
+
+
+# def run_attack(outputs,bx, strategy, max_tracker_num, adam_opt):
+#     global epoch_id
+    
+#     outputs = outputs[0][0] # lifang535 add
+    
+#     per_num_b = (25*45)/max_tracker_num
+#     per_num_m = (50*90)/max_tracker_num
+#     per_num_s = (100*180)/max_tracker_num
+
+#     scores = outputs[:,index] * outputs[:,4]
+#     height = outputs[:,2]
+#     width = outputs[:,3]
+
+#     sel_scores_b = scores[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
+#     sel_scores_m = scores[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
+#     sel_scores_s = scores[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
+#     sel_height_b = height[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
+#     sel_height_m = height[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
+#     sel_height_s = height[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
+#     sel_width_b = width[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
+#     sel_width_m = width[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
+#     sel_width_s = width[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
+
+
+#     sel_dets = torch.cat((sel_scores_b, sel_scores_m, sel_scores_s), dim=0)
+#     sel_height = torch.cat((sel_height_b, sel_height_m, sel_height_s), dim=0)
+#     sel_width = torch.cat((sel_width_b, sel_width_m, sel_width_s), dim=0)
+#     sel_aaa = (sel_width/640) * (sel_height/640)
+    
+#     # print(f"scores.shape = {scores.shape}, height.shape = {height.shape}, width.shape = {width.shape}")
+#     # print(f"sel_dets.shape = {sel_dets.shape}, sel_height.shape = {sel_height.shape}, sel_width.shape = {sel_width.shape}, sel_aaa.shape = {sel_aaa.shape}")
+#     # time.sleep(5)
+    
+#     loss4 = 100*torch.sum(sel_aaa) # lifang535: 相较于 stra_attack，这里的 loss4 是对所有的 box 的面积求和
+#     targets = torch.ones_like(sel_dets)
+#     loss1 = 10*(F.mse_loss(sel_dets, targets, reduction='sum')) # lifang535: 和 feature matching 有关
+#     loss2 = 40*torch.norm(bx, p=2)
+#     targets = torch.ones_like(scores) # lifang535 remove
+#     # targets = torch.zeros_like(scores) # lifang535 add
+#     loss3 = 1.0*(F.mse_loss(scores, targets, reduction='sum'))
+#     # loss = loss1+loss4#+loss3#+loss2 # lifang535 remove
+#     # loss = loss1+loss4+loss3+loss2 # lifang535 add
+#     # loss = loss3
+#     if epoch_id <= 50:  # lifang535: for new attack
+#         loss = loss3 # lifang535 add # lifang535: for new attack
+#     else:  # lifang535: for new attack
+#         loss = loss1+loss4+loss3+loss2  # lifang535: for new attack
+#     # loss = loss1+loss4+loss3+10*loss2 # lifang535 add
+    
+#     loss.requires_grad_(True)
+#     adam_opt.zero_grad()
+#     loss.backward(retain_graph=True)
+    
+#     # adam_opt.step()
+#     bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
+#     bx.data = -1.5 * bx.grad+ bx.data
+#     count = (scores > 0.25).sum()
+#     print('loss',loss.item(),'loss_1',loss1.item(),'loss_2',loss2.item(),'loss_3',loss4.item(),'count:',count.item())
+#     return bx
 
 
 
@@ -182,6 +341,7 @@ class SingleAttack:
         result_folder=None
     ):
         global model, names, device
+        global epoch_id # lifang535: for new attack
         """
         COCO average precision (AP) Evaluation. Iterate inference on the test dataset
         and the results are evaluated by COCO API.
@@ -242,6 +402,8 @@ class SingleAttack:
         #(1,23625,6)
         
         for iter in tqdm(range(epochs)):
+            epoch_id = iter # lifang535: for new attack
+            
             added_imgs = imgs+bx
             
             l2_norm = torch.sqrt(torch.mean(bx ** 2))
@@ -251,7 +413,14 @@ class SingleAttack:
             if half:
                 input_imgs = input_imgs.half()
             # outputs = model(input_imgs) # lifang535 remove
-            outputs = model(added_imgs) # lifang535 add
+           
+            # outputs = model(added_imgs) # lifang535 add
+            
+            # noise_imgs = add_gaussian_noise(added_imgs) # lifang535: robust_test
+            # noise_imgs = add_spatial_smoothing(added_imgs) # lifang535: robust_test
+            noise_imgs = added_imgs
+            outputs = model(noise_imgs)
+            
             bx = run_attack(outputs,bx, strategy, max_tracker_num, adam_opt)
         if strategy == max_tracker_num-1:
             strategy = 0
@@ -267,10 +436,11 @@ class SingleAttack:
         cv2.imwrite(output_path, added_blob) # lifang535: 这个 attack 效果似乎不受小数位损失影响
         
         print(f"saved image to {output_path}")
-        objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms = infer(input_path)
-        _objects_num_before_nms, _objects_num_after_nms, _person_num_after_nms, _car_num_after_nms = infer(output_path)
+        objects_num_before_nms, objects_num_after_nms, person_num_after_nms, target_num_after_nms = infer(input_path)
+        _objects_num_before_nms, _objects_num_after_nms, _person_num_after_nms, _target_num_after_nms = infer(output_path)
         
-        logger.info(f"objects_num_before_nms: {objects_num_before_nms}, objects_num_after_nms: {objects_num_after_nms}, person_num_after_nms: {person_num_after_nms}, car_num_after_nms: {car_num_after_nms} -> _objects_num_before_nms: {_objects_num_before_nms}, _objects_num_after_nms: {_objects_num_after_nms}, _person_num_after_nms: {_person_num_after_nms}, _car_num_after_nms: {_car_num_after_nms}")
+        # logger.info(f"objects_num_before_nms: {objects_num_before_nms}, objects_num_after_nms: {objects_num_after_nms}, person_num_after_nms: {person_num_after_nms}, {attack_object}_num_after_nms: {target_num_after_nms}, _objects_num_before_nms: {_objects_num_before_nms}, _objects_num_after_nms: {_objects_num_after_nms}, _person_num_after_nms: {_person_num_after_nms}, _{attack_object}_num_after_nms: {_target_num_after_nms}")
+        logger.info(f"{objects_num_before_nms} {objects_num_after_nms} {person_num_after_nms} {target_num_after_nms} {_objects_num_before_nms} {_objects_num_after_nms} {_person_num_after_nms} {_target_num_after_nms}")
 
         
         # save_dir = path[0].replace("ori_img.jpg", "rao_img_3.png")
@@ -420,10 +590,10 @@ def infer(image_path):
     
     objects_num_after_nms = 0
     person_num_after_nms = 0
-    car_num_after_nms = 0
+    target_num_after_nms = 0
     
     outputs = non_max_suppression(outputs, conf_thres, iou_thres, max_det=max_det)
-    
+        
     for i, det in enumerate(outputs): # detections per image
         if len(det):
             for *xyxy, conf, cls in reversed(det):
@@ -435,14 +605,14 @@ def infer(image_path):
                 # print(f"Detected {label} with confidence {confidence_str} at location {box}")
                 if label == "person":
                     person_num_after_nms += 1
-                elif label == "car":
-                    car_num_after_nms += 1
+                if label == attack_object:
+                    target_num_after_nms += 1
             objects_num_after_nms = len(det)
         # print(f"There are {len(det)} objects detected in this image.")
     
-    # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
-    print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
-    return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
+    # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, target_num_after_nms
+    print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, {attack_object}_num_after_nms = {target_num_after_nms}")
+    return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, target_num_after_nms
 
 
 def dir_process(dir_path):
@@ -455,6 +625,14 @@ def dir_process(dir_path):
             image_path = os.path.join(dir_path, image_name)
             image = cv2.imread(image_path)
             # print(f"image.shape = {image.shape}") # (608, 1088, 3)
+            
+            # # 将图片大小扩充为 608x1088，扩充黑色像素点 # lifang535: for animal test
+            # image = cv2.copyMakeBorder(image, 0, 608 - image.shape[0], 0, 1088 - image.shape[1], cv2.BORDER_CONSTANT, value=[0, 0, 0])
+            # # 保存为 {name}_resized.png
+            # cv2.imwrite(f"{dir_path}/{image_name}_resized.png", image)
+            # image = cv2.imread(f"{dir_path}/{image_name}_resized.png")
+            # image_name_list[image_name_list.index(image_name)] = f"{image_name}_resized.png"
+            
             image_list.append(image)
 
     return image_list, image_name_list
@@ -471,44 +649,72 @@ if __name__ == "__main__":
     # infer(output_path)
     # time.sleep(10000000)
 
-    weights = "../model/yolov5/yolov5n.pt" # yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
-    device = torch.device('cuda:2')
+    # weights = "../model/yolov5/yolov5n.pt" # yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
+    weights = "./model/yolov5n.pt" # yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
+    device = torch.device('cuda:1')
     model = DetectMultiBackend(weights=weights, device=device)
     names = model.names
     print(f"names = {names}")
+    '''
+    names = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 
+    7: 'truck', 8: 'boat', 9: 'traffic light', 10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 
+    13: 'bench', 14: 'bird', 15: 'cat', 16: 'dog', 17: 'horse', 18: 'sheep', 19: 'cow', 20: 'elephant', 
+    21: 'bear', 22: 'zebra', 23: 'giraffe', 24: 'backpack', 25: 'umbrella', 26: 'handbag', 27: 'tie', 
+    28: 'suitcase', 29: 'frisbee', 30: 'skis', 31: 'snowboard', 32: 'sports ball', 33: 'kite', 34: 'baseball bat', 
+    35: 'baseball glove', 36: 'skateboard', 37: 'surfboard', 38: 'tennis racket', 39: 'bottle', 40: 'wine glass', 
+    41: 'cup', 42: 'fork', 43: 'knife', 44: 'spoon', 45: 'bowl', 46: 'banana', 47: 'apple', 48: 'sandwich', 
+    49: 'orange', 50: 'broccoli', 51: 'carrot', 52: 'hot dog', 53: 'pizza', 54: 'donut', 55: 'cake', 
+    56: 'chair', 57: 'couch', 58: 'potted plant', 59: 'bed', 60: 'dining table', 61: 'toilet', 62: 'tv', 
+    63: 'laptop', 64: 'mouse', 65: 'remote', 66: 'keyboard', 67: 'cell phone', 68: 'microwave', 69: 'oven', 
+    70: 'toaster', 71: 'sink', 72: 'refrigerator', 73: 'book', 74: 'clock', 75: 'vase', 76: 'scissors', 
+    77: 'teddy bear', 78: 'hair drier', 79: 'toothbrush'}
+    '''
     
     attack_object_key = 0 # 0: person, 2: car
-    attack_object = names[attack_object_key]
-    index = 5 + attack_object_key # yolov5 输出的结果中，class confidence 对应的 index
+    
+    # attack_method = f"adaptive_attack" # non_adaptive_attack adaptive_attack animal_test attack_threshold_defense
+    # adaptive_attack_for_smoothing adaptive_attack_for_gaussian adaptive_attack_for_threshold
+    attack_method = f"adaptive_attack_original" # non_adaptive_attack adaptive_attack animal_test attack_threshold_defense
+    
+    # for attack_object_key in range(0, 1): # lifang535 add
+    for attack_object_key in [0]: # lifang535 add
+        # TODO: 一些 label 一旦出现一个，就会出现再出现很多，或许可以先注入，或者增大迭代次数
+        # attack_object_key = 0
+        attack_object = names[attack_object_key]
+        index = 5 + attack_object_key # yolov5 输出的结果中，class confidence 对应的 index
 
-    epochs = 1000
-    learning_rate = 0.01 #0.07
-    
-    logger_path = f"log/single_attack/single_attack_{attack_object}_epochs_{epochs}.log"
-    logger = create_logger(f"single_attack_{attack_object}_epochs_{epochs}", logger_path, logging.INFO)
-    
-    # logger = create_logger(f"phantom_attack_{attack_object}_epochs_{epochs}", f"single_attack_{attack_object}_epochs_{epochs}.log", logging.INFO)
-    
-    input_dir = "original_image"
-    output_dir = f"single_attack_image/{attack_object}_epochs_{epochs}"
-    
-    # start_time = time.time()
-    
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    
-    img_size = (608, 1088)
-    image_list, image_name_list = dir_process(input_dir)
-    
-    sa = SingleAttack(
-        image_list=image_list,
-        image_name_list=image_name_list,
-        img_size=img_size,
-    )
-    
-    sa.run()
-    
-    
-    # single_attack(image_list, image_name_list)
-    
-    # TODO: 测一下哪步时延长
+        epochs = 200
+        learning_rate = 0.01 #0.07
+        
+        # logger_path = f"adaptive_attack/log/{attack_object}_epochs_{epochs}.log"
+        logger_dir = f"{attack_method}/log/epochs_{epochs}"
+        if not os.path.exists(logger_dir):
+            os.makedirs(logger_dir)
+        logger_path = f"{logger_dir}/{attack_object_key}_{attack_object}.log"
+        
+        logger = create_logger(f"{attack_method}_{attack_object}_epochs_{epochs}", logger_path, logging.INFO)
+
+        # input_dir = "animal/input"
+        # output_dir = "animal/output"
+        input_dir = "original"
+        output_dir = f"{attack_method}/output/epochs_{epochs}/{attack_object_key}_{attack_object}" # 不保存 attack 后的图片，只保存 log
+        
+        # start_time = time.time()
+        
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        
+        img_size = (608, 1088)
+        image_list, image_name_list = dir_process(input_dir)
+        
+        sa = SingleAttack(
+            image_list=image_list,
+            image_name_list=image_name_list,
+            img_size=img_size,
+        )
+        
+        sa.run()
+        
+        # single_attack(image_list, image_name_list)
+        
+        # TODO: 测一下哪步时延长

@@ -4,14 +4,6 @@ from tqdm import tqdm
 
 import torch
 
-from yolox.utils import (
-    gather,
-    is_main_process,
-    postprocess,
-    synchronize,
-    time_synchronized,
-    xyxy2xywh
-)
 
 import contextlib
 import io
@@ -27,18 +19,38 @@ import cv2
 import torch.nn as nn
 import torchvision
 
-import sys
 from pathlib import Path
 
-YOLOV5_FILE = Path(f"../model/yolov5").resolve()
+import sys
+
+
+YOLOV5_FILE = Path(f"../../yolov5").resolve()
 if str(YOLOV5_FILE) not in sys.path:
     sys.path.append(str(YOLOV5_FILE))  # add ROOT to PATH
+    
 from models.common import DetectMultiBackend
-# from utils.general import Profile, non_max_suppression
+from utils.general import Profile, non_max_suppression
 
 from PIL import Image
 import logging
 
+def xyxy2xywh(x):
+    """
+    Convert bounding box coordinates from (x1, y1, x2, y2) format to (x, y, width, height) format
+    where (x, y) is the center of the box.
+    
+    Args:
+        x: A numpy array or tensor of shape (..., 4) where the last dimension contains x1, y1, x2, y2
+        
+    Returns:
+        y: A numpy array or tensor of the same shape as x with the last dimension containing x, y, w, h
+    """
+    y = x.clone() if hasattr(x, 'clone') else x.copy()
+    y[..., 0] = (x[..., 0] + x[..., 2]) / 2  # x center
+    y[..., 1] = (x[..., 1] + x[..., 3]) / 2  # y center
+    y[..., 2] = x[..., 2] - x[..., 0]  # width
+    y[..., 3] = x[..., 3] - x[..., 1]  # height
+    return y
 
 def create_logger(module, filename, level):
     # Create a formatter for the logger, setting the format of the log with time, level, and message
@@ -68,6 +80,7 @@ lambda_2 = 10
 
 def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False,
                         labels=(), max_det=300):
+    return prediction
     """Runs Non-Maximum Suppression (NMS) on inference results
 
     Returns:
@@ -348,7 +361,7 @@ def xywh2xyxy(x):
     return y
 
 def run_attack(outputs,bx, strategy, max_tracker_num, mask):
-
+    return
     per_num_b = (25*45)/max_tracker_num
     per_num_m = (50*90)/max_tracker_num
     per_num_s = (100*180)/max_tracker_num
@@ -370,6 +383,32 @@ def run_attack(outputs,bx, strategy, max_tracker_num, mask):
     print('loss',loss.item(),'loss_2',loss2.item(),'loss_3',loss3.item(),'count:',count.item())
     return bx
 
+def _run_attack(outputs,result,bx, strategy, max_tracker_num, mask):
+    return
+    per_num_b = (25*45)/max_tracker_num
+    per_num_m = (50*90)/max_tracker_num
+    per_num_s = (100*180)/max_tracker_num
+
+    # scores = outputs[:,5] * outputs[:,4] # remove
+    
+    scores = result["scores"] # add
+    
+    loss2 = 40*torch.norm(bx, p=2)
+    targets = torch.ones_like(scores)
+    loss3 = F.mse_loss(scores, targets, reduction='sum')
+    loss = loss3#+loss2
+    # loss = loss3+2*(10000-loss2)
+    loss.requires_grad_(True)
+    loss.backward(retain_graph=True)
+    
+    bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
+    # bx.data = -3.5 * mask * bx.grad+ bx.data
+    bx.data = torch.clamp(-3.5 * mask * bx.grad+ bx.data, min=-0.2, max=0.2)
+    count = (scores > 0.9).sum()
+    if __name__ == "__main__":
+      pass
+    print(f"loss: {loss.item():.4f}, loss_2: {loss2.item():.4f}, loss_3: {loss3.item():.4f}, count: {count.item()}")
+    return bx, count.item()
 
 class PhantomAttack:
     """
@@ -378,7 +417,7 @@ class PhantomAttack:
     """
 
     def __init__(
-        self, image_list, image_name_list, img_size): # , confthre, nmsthre):
+        self, image_list, image_name_list, img_size, results_dict = {}, epochs=-1, device=None):
         """
         Args:
             dataloader (Dataloader): evaluate dataloader.
@@ -398,12 +437,20 @@ class PhantomAttack:
         self.current_max_objects_loss = 0.0
         self.current_orig_classification_loss = 0.0
         self.min_bboxes_added_preds_loss = 0.0
+        
+        self.epochs = epochs
+        self.device = device  
+        self.results_dict = results_dict    
+        self.image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
+        self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(self.device)
+        self.model.eval()
+        self.names = CONSTANTS.DETR_DICT
 
     def loss_function_gradient(self, applied_patch, init_images, adv_patch, device):
         
-        iou = IoU(conf_threshold=self.confthre, iou_threshold=self.nmsthre, img_size=init_images.shape[1:], device=device)
-        init_images = init_images.to(device)
-        applied_patch = applied_patch.to(device)
+        iou = IoU(conf_threshold=self.confthre, iou_threshold=self.nmsthre, img_size=init_images.shape[1:], device=self.device)
+        init_images = init_images.to(self.device)
+        applied_patch = applied_patch.to(self.device)
         # r = random.randint(0, len(models)-1) # choose a random model
         if init_images.ndimension()==3:
             init_images = init_images.unsqueeze(0)
@@ -412,14 +459,15 @@ class PhantomAttack:
         init_images.clamp_(min=0, max=1)
         init_images = (init_images - self.rgb_means)/self.std
         with torch.no_grad():
-            output_clean = model(init_images)[0].detach()
+            output_clean = self.model(init_images)[0].detach()
             # output_clean = model(init_images).detach()
-        output_patch = model(applied_patch)[0]
+        output_patch = self.model(applied_patch)[0]
 
         max_objects_loss = max_objects(output_patch,conf_thres=self.confthre)
         
         bboxes_area_loss = bboxes_area(output_clean, output_patch, init_images.shape[1:])
-
+        # TODO:
+        # vit
         iou_loss = iou(output_clean, output_patch)
         loss = max_objects_loss * lambda_1
 
@@ -433,9 +481,9 @@ class PhantomAttack:
         self.current_train_loss += loss.item()
         self.current_max_objects_loss += (lambda_1 * max_objects_loss.item())
 
-        loss = loss.to(device)
+        loss = loss.to(self.device)
 
-        model.zero_grad()
+        self.model.zero_grad()
         data_grad = torch.autograd.grad(loss, adv_patch)[0]
         return data_grad
 
@@ -446,7 +494,7 @@ class PhantomAttack:
         # image_attack = image+ (torch.rand(image.size())/255)
 
         # torch.autograd.set_detect_anomaly(True)
-        data_grad = self.loss_function_gradient(applied_patch, images, adv_patch, device)  # init_image, penalty_term, adv_patch)
+        data_grad = self.loss_function_gradient(applied_patch, images, adv_patch, self.device)  # init_image, penalty_term, adv_patch)
 
         # Collect the element-wise sign of the data gradient
         sign_data_grad = data_grad.sign()
@@ -462,7 +510,7 @@ class PhantomAttack:
         imgs,
         image_name
     ):
-        global model, names
+        # global  names
         """
         COCO average precision (AP) Evaluation. Iterate inference on the test dataset
         and the results are evaluated by COCO API.
@@ -479,11 +527,11 @@ class PhantomAttack:
         """
         # TODO half to amp_test
         tensor_type = torch.cuda.FloatTensor
-        model = model.eval()
+
         data_list = []
         results = []
         video_names = defaultdict()
-        progress_bar = tqdm if is_main_process() else iter
+        # progress_bar = tqdm if is_main_process() else iter
 
             
         frame_id = 0
@@ -491,14 +539,21 @@ class PhantomAttack:
         total_l2 = 0
         strategy = 0
         max_tracker_num = int(15)
-        self.rgb_means=torch.tensor((0.485, 0.456, 0.406)).view(1, 3, 1, 1).to(device)
-        self.std=torch.tensor((0.229, 0.224, 0.225)).view(1, 3, 1, 1).to(device)
-        bx = np.zeros((3, self.img_size[0], self.img_size[1]))
+        self.rgb_means=torch.tensor((0.485, 0.456, 0.406)).view(1, 3, 1, 1).to(self.device)
+        self.std=torch.tensor((0.229, 0.224, 0.225)).view(1, 3, 1, 1).to(self.device)
+        
+        inputs = self.image_processor(images=imgs, return_tensors="pt").to(self.device)
+        imgs = inputs["pixel_values"]
+        
+        
+        bx = np.zeros((3, imgs.shape[2], imgs.shape[3]))
         bx = bx.astype(np.float32)
-        bx = torch.from_numpy(bx).to(device).unsqueeze(0)
+        bx = torch.from_numpy(bx).to(self.device).unsqueeze(0)
         bx = bx.data.requires_grad_(True)
         adv_patch = bx
-        for iter in tqdm(range(epochs)):
+        
+        imgs = util.denormalize(imgs)
+        for iter in tqdm(range(self.epochs)):
 
             frame_id = 0
             
@@ -509,10 +564,12 @@ class PhantomAttack:
             # print(path)
             frame_id += 1
             imgs = imgs.type(tensor_type)
-            imgs = imgs.to(device)
+            imgs = imgs.to(self.device)
             
-            adv_patch, applied_patch = self.fastGradientSignMethod(adv_patch, imgs, device, epsilon=iter_eps)
+            adv_patch, applied_patch = self.fastGradientSignMethod(adv_patch, imgs, self.device, epsilon=iter_eps)
             perturbation = adv_patch - bx
+            if iter == 0:
+                perturbation += torch.normal(mean=0.0, std=0.1, size=perturbation.size()).to(self.device)
             norm = torch.sum(torch.square(perturbation))
             norm = torch.sqrt(norm)
             factor = min(1, epsilon / norm.item())  # torch.divide(epsilon, norm.numpy()[0]))
@@ -530,33 +587,45 @@ class PhantomAttack:
             mean_l2 = total_l2/frame_id
             print(mean_l1.item(),mean_l2.item())
             
+            result = self.model(applied_patch) 
+            
+            target_size = [imgs.shape[2:] for _ in range(1)]
+            outputs = self.image_processor.post_process_object_detection(result, 
+                                                                    threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                    target_sizes = target_size)[0]
+
+    
+            scores = outputs["scores"]
+            count = (scores >= 0.25).sum() # original: > 0.3
+            print(f"count: {count.item()}\n")
         added_blob = torch.clamp(applied_patch*255,0,255).squeeze().permute(1, 2, 0).detach().cpu().numpy()
         added_blob = added_blob[..., ::-1]
         # print(f"added_blob.shape = {added_blob.shape}")
         # print(f"added_blob = {added_blob}")
         # time.sleep(100000)
-            
-        input_path = f"{input_dir}/{image_name}"
-        output_path = f"{output_dir}/{image_name}"
-        cv2.imwrite(output_path, added_blob) # lifang535: 这个 attack 效果似乎不受小数位损失影响
+ 
+        # input_path = f"{input_dir}/{image_name}"
+        # output_path = f"{output_dir}/{image_name}"
+        # # lifang535: 这个 attack 效果似乎不受小数位损失影响
+        # cv2.imwrite(output_path, added_blob) 
         
-        print(f"saved image to {output_path}")
-        objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms = infer(input_path)
-        _objects_num_before_nms, _objects_num_after_nms, _person_num_after_nms, _car_num_after_nms = infer(output_path)
+        # print(f"saved image to {output_path}")
+        # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms = infer(input_path)
+        # _objects_num_before_nms, _objects_num_after_nms, _person_num_after_nms, _car_num_after_nms = infer(output_path)
         
-        logger.info(f"objects_num_before_nms: {objects_num_before_nms}, objects_num_after_nms: {objects_num_after_nms}, person_num_after_nms: {person_num_after_nms}, car_num_after_nms: {car_num_after_nms} -> _objects_num_before_nms: {_objects_num_before_nms}, _objects_num_after_nms: {_objects_num_after_nms}, _person_num_after_nms: {_person_num_after_nms}, _car_num_after_nms: {_car_num_after_nms}")
+        # logger.info(f"objects_num_before_nms: {objects_num_before_nms}, objects_num_after_nms: {objects_num_after_nms}, person_num_after_nms: {person_num_after_nms}, car_num_after_nms: {car_num_after_nms} -> _objects_num_before_nms: {_objects_num_before_nms}, _objects_num_after_nms: {_objects_num_after_nms}, _person_num_after_nms: {_person_num_after_nms}, _car_num_after_nms: {_car_num_after_nms}")
         # infer(output_path_tiff)
 
         return mean_l1,mean_l2
     
-    def run(self):
+    def _run(self):
         """
         Run the evaluation.
         """
         for image, image_name in zip(self.image_list, self.image_name_list):
             image = image.transpose((2, 0, 1))[::-1]
             image = np.ascontiguousarray(image)
-            image = torch.from_numpy(image).to(device).float()
+            image = torch.from_numpy(image).to(self.device).float()
             image /= 255.0
 
             if len(image.shape) == 3:
@@ -566,7 +635,18 @@ class PhantomAttack:
             
             mean_l1, mean_l2 = self.evaluate(image, image_name)
 
-
+    def run(self):
+        device_id = 0
+        for index, example in tqdm(enumerate(self.image_list), total=self.image_list.__len__(), desc="Processing COCO data"):
+            
+            image_id, image, width, height, bbox_id, category, gt_boxes, area = util.parse_example(example)
+            assert len(bbox_id) == len(category) == len(gt_boxes) == len(area)
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+            
+            mean_l1, mean_l2 = self.evaluate(image, image_id)
+            
+            continue
 
 def infer(image_path):
     image = cv2.imread(image_path)
@@ -589,7 +669,7 @@ def infer(image_path):
     
     # print(f"image_tensor = {image_tensor}")
     
-    outputs = model(image_tensor)
+    outputs = self.model(image_tensor)
     
     # print(f"outputs = {outputs}")
     
@@ -651,7 +731,26 @@ def dir_process(dir_path):
 
     return image_list, image_name_list
 
+def _dir_process(img_list_len=None):
+    if not img_list_len:
+        img_list_len = CONSTANTS.VAL_SUBSET_SIZE
+    print(f"using img list length: {img_list_len}")    
+    coco_data = load_dataset("detection-datasets/coco", split="val")
+    random.seed(42)
+    random_indices = random.sample(range(len(coco_data)), img_list_len)
+    coco_data = coco_data.select(random_indices)
+    
+    return coco_data
 
+import CONSTANTS
+import random
+from datasets import load_dataset
+from transformers import DetrConfig, DetrForObjectDetection, DetrImageProcessor
+from transformers import AutoImageProcessor
+import pdb
+import util
+
+random.seed(42)
 if __name__ == "__main__":
     # image_name = "000001.png"
     # input_path = f"original_image/{image_name}"
@@ -663,13 +762,20 @@ if __name__ == "__main__":
     # infer(output_path)
     # time.sleep(10000000)
 
-    weights = "../model/yolov5/yolov5n.pt" # yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
-    device = torch.device('cuda:1')
-    model = DetectMultiBackend(weights=weights, device=device)
-    names = model.names
-    print(f"names = {names}")
+    # weights = "../model/yolov5/yolov5n.pt" # yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
+    # device = torch.device('cuda:1')
+    # model = DetectMultiBackend(weights=weights, device=device)
+    # names = model.names
+    # print(f"names = {names}")
     
-    attack_object_key = 0 # 0: person, 2: car
+    device = torch.device('cuda:1')
+    image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
+    model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(device)
+    model.eval()
+    names = CONSTANTS.DETR_DICT
+    # pdb.set_trace()
+    
+    attack_object_key = 1 # 1: person, 3: car, 22: elephant, 25: giraffe
     attack_object = names[attack_object_key]
     index = 5 + attack_object_key # yolov5 输出的结果中，class confidence 对应的 index
 
@@ -677,24 +783,25 @@ if __name__ == "__main__":
     
     logger_path = f"log/phantom_attack/phantom_attack_{attack_object}_epochs_{epochs}.log"
     logger = create_logger(f"phantom_attack_{attack_object}_epochs_{epochs}", logger_path, logging.INFO)
-    
-    # logger = create_logger(f"phantom_attack_{attack_object}_epochs_{epochs}", f"phantom_attack_{attack_object}_epochs_{epochs}.log", logging.INFO)
+    logger = create_logger(f"phantom_attack_{attack_object}_epochs_{epochs}", f"phantom_attack_{attack_object}_epochs_{epochs}.log", logging.INFO)
     
     input_dir = "original_image"
     output_dir = f"phantom_attack_image/{attack_object}_epochs_{epochs}"
     
     # start_time = time.time()
     
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    # if not os.path.exists(output_dir):
+    #     os.makedirs(output_dir)
     
     img_size = (608, 1088)
-    image_list, image_name_list = dir_process(input_dir)
-    
+    image_list = _dir_process(50)   
+     
     pa = PhantomAttack(
         image_list=image_list,
-        image_name_list=image_name_list,
+        image_name_list=None,
         img_size=img_size,
+        epochs=epochs,
+        device=None
     )
     
     pa.run()
