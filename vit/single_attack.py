@@ -114,16 +114,26 @@ def xywh2xyxy(x):
     return y
 
 def run_attack(result, outputs, bx, strategy, max_tracker_num, adam_opt):
-    outputs = outputs[0] # lifang535 add
+    # import pdb; pdb.set_trace()
+    # outputs = outputs[0] 
+    
+    # lifang535 add
     
     per_num_b = (25*45)/max_tracker_num
     per_num_m = (50*90)/max_tracker_num
     per_num_s = (100*180)/max_tracker_num
 
     # scores = outputs[:,5] * outputs[:,4]
-    scores = outputs["scores"]
-    height = outputs[:,2]
-    width = outputs[:,3]
+    # scores = outputs["scores"]
+    # height = outputs[:,2]
+    # width = outputs[:,3]
+    
+    scores = outputs['scores'].view(-1)  # Flatten scores
+    boxes = outputs['boxes']  # Shape: [N, 4]
+    
+    # Calculate heights and widths from boxes
+    height = boxes[:, 3] - boxes[:, 1]  # y2 - y1
+    width = boxes[:, 2] - boxes[:, 0]   # x2 - x1
 
     sel_scores_b = scores[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
     sel_scores_m = scores[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
@@ -158,7 +168,8 @@ def run_attack(result, outputs, bx, strategy, max_tracker_num, adam_opt):
     bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
     bx.data = -1.5 * bx.grad+ bx.data
     count = (scores > 0.25).sum()
-    print('loss',loss.item(),'loss_1',loss1.item(),'loss_2',loss2.item(),'loss_3',loss4.item(),'count:',count.item())
+    # print(f"loss: {loss.item():.4f} loss_1: {loss1.item():.4f} loss_2: {loss2.item():.4f} loss_3: {loss4.item():.4f}")
+    tqdm.write(f"loss: {loss:.4f} loss_1: {loss1:.4f} loss_2: {loss2:.4f} loss_3: {loss3:.4f} loss_4: {loss4:.4f}")
     return bx
 
 
@@ -255,11 +266,10 @@ class SingleAttack:
         # for cur_iter, (imgs,path) in enumerate(
         #     progress_bar(self.dataloader)
         #     ):
+        
         inputs = self.image_processor(images=imgs, return_tensors="pt").to(self.device)
         imgs = inputs["pixel_values"]
-        print('strategy:',strategy)
-        # print(path)
-        
+
         frame_id += 1
         bx = np.zeros((3, imgs.shape[2], imgs.shape[3]))
         bx = bx.astype(np.float32)
@@ -286,32 +296,34 @@ class SingleAttack:
                                                                     threshold = CONSTANTS.POST_PROCESS_THRESH, 
                                                                     target_sizes = target_size)[0]
 
-    
+            
             bx = run_attack(result, outputs, bx, strategy, max_tracker_num, adam_opt)
             
             target_size = [imgs.shape[2:] for _ in range(1)]
 
             scores = outputs["scores"]
             count = (scores >= 0.25).sum() # original: > 0.3
-            print(f"count: {count.item()}\n")
+            # print(f"count: {count.item()}\n")
+            tqdm.write(f"count: {count.item()}")
+
         if strategy == max_tracker_num-1:
             strategy = 0
         else:
             strategy += 1
-        print(added_imgs.shape)
         added_blob = torch.clamp(added_imgs*255,0,255).squeeze().permute(1, 2, 0).detach().cpu().numpy()
         added_blob = added_blob[..., ::-1]
         
         
-        input_path = f"{input_dir}/{image_name}"
-        output_path = f"{output_dir}/{image_name}"
-        cv2.imwrite(output_path, added_blob) # lifang535: 这个 attack 效果似乎不受小数位损失影响
+        # input_path = f"{input_dir}/{image_name}"
+        # output_path = f"{output_dir}/{image_name}"
+        # cv2.imwrite(output_path, added_blob) 
+        # lifang535: 这个 attack 效果似乎不受小数位损失影响
         
-        print(f"saved image to {output_path}")
-        objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms = infer(input_path)
-        _objects_num_before_nms, _objects_num_after_nms, _person_num_after_nms, _car_num_after_nms = infer(output_path)
+        # print(f"saved image to {output_path}")
+        # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms = infer(input_path)
+        # _objects_num_before_nms, _objects_num_after_nms, _person_num_after_nms, _car_num_after_nms = infer(output_path)
         
-        logger.info(f"objects_num_before_nms: {objects_num_before_nms}, objects_num_after_nms: {objects_num_after_nms}, person_num_after_nms: {person_num_after_nms}, car_num_after_nms: {car_num_after_nms} -> _objects_num_before_nms: {_objects_num_before_nms}, _objects_num_after_nms: {_objects_num_after_nms}, _person_num_after_nms: {_person_num_after_nms}, _car_num_after_nms: {_car_num_after_nms}")
+        # logger.info(f"objects_num_before_nms: {objects_num_before_nms}, objects_num_after_nms: {objects_num_after_nms}, person_num_after_nms: {person_num_after_nms}, car_num_after_nms: {car_num_after_nms} -> _objects_num_before_nms: {_objects_num_before_nms}, _objects_num_after_nms: {_objects_num_after_nms}, _person_num_after_nms: {_person_num_after_nms}, _car_num_after_nms: {_car_num_after_nms}")
 
         
         # save_dir = path[0].replace("ori_img.jpg", "rao_img_3.png")
@@ -354,12 +366,10 @@ class SingleAttack:
         # result_file_path = path[0].replace("ori_img.jpg", "kuang_4.png")
         # cv2.imwrite(result_file_path, hua_2_img)
         
-        print(l1_norm.item(),l2_norm.item())
         total_l1 += l1_norm
         total_l2 += l2_norm
         mean_l1 = total_l1/frame_id
         mean_l2 = total_l2/frame_id
-        print(mean_l1.item(),mean_l2.item())
         del bx
         del adam_opt
         del outputs
@@ -413,7 +423,6 @@ class SingleAttack:
             if len(image.shape) == 3:
                 image = image[None]
 
-            # print(f"image.shape = {image.shape}")
             
             mean_l1, mean_l2 = self.evaluate(image, image_name)
 
@@ -432,8 +441,6 @@ class SingleAttack:
 
 def infer(image_path):
     image = cv2.imread(image_path)
-    # print(f"image.shape = {image.shape}") # (608, 1088, 3)
-    # print(f"image = {image}")
 
     image = image.transpose((2, 0, 1))[::-1]
     image = np.ascontiguousarray(image)
@@ -449,17 +456,13 @@ def infer(image_path):
     
     image_tensor = image
     
-    # print(f"image_tensor = {image_tensor}")
     
     outputs = model(image_tensor)
-    
-    # print(f"outputs = {outputs}")
-    
+        
     outputs = outputs[0].unsqueeze(0)
     
     # scores = outputs[..., index] * outputs[..., 4]
     # scores = scores[scores > 0.25]
-    # print(f"len(scores) = {len(scores)}")
     # objects_num_before_nms = len(scores) # 实际上是 {attack_object} number before NMS
     
     conf_thres = 0.25 # 0.25  # confidence threshold
@@ -486,16 +489,14 @@ def infer(image_path):
                 confidence = float(conf)
                 confidence_str = f"{confidence}" # f"{confidence:.2f}"
                 box = [round(float(i), 2) for i in xyxy]
-                # print(f"Detected {label} with confidence {confidence_str} at location {box}")
                 if label == "person":
                     person_num_after_nms += 1
                 elif label == "car":
                     car_num_after_nms += 1
             objects_num_after_nms = len(det)
-        # print(f"There are {len(det)} objects detected in this image.")
     
     # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
-    print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
+    # print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
     return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
 
 
@@ -503,12 +504,10 @@ def dir_process(dir_path):
     image_list = []
     image_name_list = os.listdir(dir_path)
     image_name_list.sort()
-    # print(f"image_name_list = {image_name_list}")
     for image_name in image_name_list:
         if image_name.endswith(".png"):
             image_path = os.path.join(dir_path, image_name)
             image = cv2.imread(image_path)
-            # print(f"image.shape = {image.shape}") # (608, 1088, 3)
             image_list.append(image)
 
     return image_list, image_name_list
@@ -537,7 +536,6 @@ if __name__ == "__main__":
     device = torch.device('cuda:2')
     model = DetectMultiBackend(weights=weights, device=device)
     names = model.names
-    print(f"names = {names}")
     
     device = torch.device('cuda:1')
     image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")

@@ -18,13 +18,17 @@ import argparse
 import overload_attack
 import single_attack
 import phantom_attack
+import stra_attack
+import adaptive_attack
 from datetime import datetime
 import os
 import random
+import time
 
 parser = argparse.ArgumentParser(description="DETR hyperparam setup")
 parser.add_argument("--e", type=int, default=-999)
 parser.add_argument("--t", type=str, default="infer")
+parser.add_argument("--p", type=str, default=None)
 args = parser.parse_args()
 
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
@@ -41,12 +45,11 @@ if __name__ == "__main__":
   # set up MS COCO 2017
   coco_data = load_dataset("detection-datasets/coco", split="val")
   # pdb.set_trace()
-  if args.t != "infer":
-    # coco_data = coco_data.select(range(CONSTANTS.VAL_SUBSET_SIZE))
-    random.seed(42)
-    random_indices = random.sample(range(len(coco_data)), CONSTANTS.VAL_SUBSET_SIZE)
-    
-    coco_data = coco_data.select(random_indices)
+
+  random.seed(42)
+  random_indices = random.sample(range(len(coco_data)), CONSTANTS.VAL_SUBSET_SIZE)
+  
+  coco_data = coco_data.select(random_indices)
     
   if args.t == "infer":
     for index, example in tqdm(enumerate(coco_data), total=coco_data.__len__(), desc="Processing COCO data"):
@@ -60,12 +63,13 @@ if __name__ == "__main__":
       inputs = image_processor(images=image, return_tensors="pt").to(device)
       
       with torch.no_grad():
+        start_time = time.perf_counter()
         outputs = model(**inputs)
       target_size = torch.tensor([image.size[::-1]])
       results = image_processor.post_process_object_detection(outputs, 
                                                               threshold = CONSTANTS.POST_PROCESS_THRESH, 
                                                               target_sizes = target_size)[0]
-      import pdb; pdb.set_trace()
+      # import pdb; pdb.set_trace()
       results = util.move_to_cpu(results)
       pred_scores, pred_labels, pred_boxes = util.parse_prediction(results)
         # for visualization
@@ -76,39 +80,65 @@ if __name__ == "__main__":
                                                 pred_scores,
                                                 gt_boxes, 
                                                 iou_threshold=0.5)
-      
-      results_dict[f"image_{image_id}"] = img_result
+      end_time = time.perf_counter()
+      elapsed_time = (end_time - start_time) * 1000
+      # results_dict[f"image_{image_id}"] = img_result
+      results_dict[f"image_{image_id}"] = {"inference time": round(elapsed_time, 2)}
+
     
   if args.t == "phantom":
     
     # clean_bbox_num = (pred_scores > 0.9).sum()
-    pa = phantom_attack.PhantomAttack(image_list=coco_data,
+    phantom = phantom_attack.PhantomAttack(image_list=coco_data,
                                         image_name_list=None,
                                         img_size=None,
                                         epochs=args.e,
                                         device=device)
-    pa.run()
-    results_dict = pa.results_dict
+    phantom.run()
+    results_dict = phantom.results_dict
 
   if args.t == "single":
-    sa = single_attack.SingleAttack(image_list=coco_data,
+    single = single_attack.SingleAttack(image_list=coco_data,
                                         image_name_list=None,
                                         img_size=None,
                                         epochs=args.e,
                                         device=device)
-    sa.run()
-    results_dict = sa.results_dict
+    single.run()
+    results_dict = single.results_dict
 
   if args.t == "overload":
     
     # clean_bbox_num = (pred_scores > 0.9).sum()
-    oa = overload_attack.OverloadAttack(image_list=coco_data,
+    overload = overload_attack.OverloadAttack(image_list=coco_data,
+                                              image_name_list=None,
+                                              img_size=None,
+                                              epochs=args.e,
+                                              device=device)
+    overload.run()
+    results_dict = overload.results_dict
+    
+  if args.t == "slow":
+    # raise ValueError("not implemented")
+    slow = stra_attack.StraAttack(image_list=coco_data,
+                                  image_name_list=None,
+                                  img_size=None,
+                                  epochs=args.e,
+                                  device=device)
+    slow.run()
+    results_dict = slow.results_dict
+    pass
+  
+  if args.t == "ada":
+    ada = adaptive_attack.SingleAttack(image_list=coco_data,
                                         image_name_list=None,
                                         img_size=None,
                                         epochs=args.e,
+                                        pipeline=args.p,
                                         device=device)
-    oa.run()
-    results_dict = oa.results_dict
+    ada.run()
+    results_dict = ada.results_dict
+    # pdb.set_trace()
+
     #TODO: change the overload method accordingly
     # bbox_num = old_overload.attack(model, 
     #                                image_processor, 
@@ -123,12 +153,12 @@ if __name__ == "__main__":
     #saturate gradient -> early stop
     #coefficient
       
-  if args.t == "infer":
-    output_path = "../prediction/detr_eval_result.json"
-    with open(output_path, "w") as f:
-      json.dump(results_dict, f, indent=4)
+  # if args.t == "infer":
+  #   output_path = "../prediction/detr_infer_result.json"
+  #   with open(output_path, "w") as f:
+  #     json.dump(results_dict, f, indent=4)
 
-    print(f"Evaluation results saved to {output_path}")
+  #   print(f"Evaluation results saved to {output_path}")
     
 
   date_str = datetime.now().strftime("%Y%m%d_%H%M")

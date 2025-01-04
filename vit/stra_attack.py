@@ -126,30 +126,31 @@ def xywh2xyxy(x):
 
 def run_attack(outputs,outputs_2,bx, strategy, max_tracker_num, adam_opt):
     outputs = outputs[0][0]
-    outputs_2 = outputs_2[0][0]
+    # outputs_2 = outputs_2[0][0]
 
     per_num_b = (25*45)/max_tracker_num
     per_num_m = (50*90)/max_tracker_num
     per_num_s = (100*180)/max_tracker_num
 
     scores = outputs[:,5] * outputs[:,4]
-    scores_2 = outputs_2[:,5] * outputs_2[:,4]
     sel_scores_b = scores[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
     sel_scores_m = scores[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
     sel_scores_s = scores[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
-    sel_scores_b_2 = scores_2[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
-    sel_scores_m_2 = scores_2[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
-    sel_scores_s_2 = scores_2[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
 
     sel_dets = torch.cat((sel_scores_b, sel_scores_m, sel_scores_s), dim=0)
-    sel_dets_2 = torch.cat((sel_scores_b_2, sel_scores_m_2, sel_scores_s_2), dim=0)
+    # sel_dets_2 = torch.cat((sel_scores_b_2, sel_scores_m_2, sel_scores_s_2), dim=0)
     targets = torch.ones_like(sel_dets) # lifang535 remove
     # targets = torch.zeros_like(sel_dets) # lifang535 add
-    loss1 = 10*(F.mse_loss(sel_dets, targets, reduction='sum')+F.mse_loss(sel_dets_2, targets, reduction='sum')) # lifang535 remove
+    
+    loss1 = 10*(F.mse_loss(sel_dets, targets, reduction='sum')) #+F.mse_loss(sel_dets_2, targets, reduction='sum')) 
+    
+    # TODO: 
+    # downstream label targeted
+    
     loss2 = 40*torch.norm(bx, p=2)
     targets = torch.ones_like(scores) # lifang535 remove
     # targets = torch.zeros_like(scores) # lifang535 add
-    loss3 = 1.0*(F.mse_loss(scores, targets, reduction='sum')+F.mse_loss(scores_2, targets, reduction='sum'))
+    loss3 = 1.0*(F.mse_loss(scores, targets, reduction='sum') ) #+F.mse_loss(scores_2, targets, reduction='sum'))
     # loss = loss1+loss3#+loss2 # lifang535 remove
     loss = loss1+loss2+loss3 # lifang535 add
     
@@ -161,9 +162,11 @@ def run_attack(outputs,outputs_2,bx, strategy, max_tracker_num, adam_opt):
     bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
     bx.data = -1.5 * bx.grad+ bx.data
     count = (scores > 0.25).sum()
-    print('loss',loss.item(),'loss_1',loss1.item(),'loss_2',loss2.item(),'loss_3',loss3.item(),'count:',count.item()) # lifang535 remove
+
+    tqdm.write(f"loss: {loss:.4f} loss_1: {loss1:.4f} loss_2: {loss2:.4f} loss_3: {loss3:.4f}")
+    tqdm.write("")
     # print('loss',loss.item(),'loss_1',0,'loss_2',loss2.item(),'loss_3',loss3.item(),'count:',count.item()) # lifang535 add
-    return bx
+    return bx, count
 
 
 
@@ -177,7 +180,10 @@ class StraAttack:
         self,
         image_list,
         image_name_list,
-        img_size):
+        img_size, 
+        results_dict = {}, 
+        epochs=-1, 
+        device=None):
         """
         Args:
             dataloader (Dataloader): evaluate dataloader.
@@ -199,12 +205,21 @@ class StraAttack:
         
         self.cur_iter = 0
 
+        self.epochs = epochs
+        self.device = device  
+        self.results_dict = results_dict    
+        self.image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
+        self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(self.device)
+        self.model.eval()
+        self.names = CONSTANTS.DETR_DICT
+        
     def evaluate(
         self,
         imgs,
         image_name,
         imgs_2,
         image_name_2,
+        clean_count,
         
         distributed=False,
         half=False,
@@ -230,9 +245,9 @@ class StraAttack:
         """
         # TODO half to amp_test
         tensor_type = torch.cuda.HalfTensor if half else torch.cuda.FloatTensor
-        model = model.eval()
+        model = self.model.eval()
         if half:
-            model = model.half()
+            model = self.model.half()
         ids = []
         data_list = []
         results = []
@@ -255,45 +270,61 @@ class StraAttack:
         strategy = 0
         max_tracker_num = int(6)
         strategy, max_tracker_num = allocation_strategy(max_tracker_num)
-        rgb_means=torch.tensor((0.485, 0.456, 0.406)).view(1, 3, 1, 1).to(device)
-        std=torch.tensor((0.229, 0.224, 0.225)).view(1, 3, 1, 1).to(device)
+        rgb_means=torch.tensor((0.485, 0.456, 0.406)).view(1, 3, 1, 1).to(self.device)
+        std=torch.tensor((0.229, 0.224, 0.225)).view(1, 3, 1, 1).to(self.device)
         # for cur_iter, (imgs,path,imgs_2,path_2) in enumerate(
         #     progress_bar(self.dataloader)
         #     ):
 
         print('strategy:',strategy[self.cur_iter])
-        # print(path,path_2)
-        
-        frame_id += 1
+
+        inputs = self.image_processor(images=imgs, return_tensors="pt").to(self.device)
+        imgs = inputs["pixel_values"]
+
         bx = np.zeros((imgs.shape[1], imgs.shape[2], imgs.shape[3]))
         bx = bx.astype(np.float32)
-        bx = torch.from_numpy(bx).to(device).unsqueeze(0)
+        bx = torch.from_numpy(bx).to(self.device).unsqueeze(0)
         bx = bx.data.requires_grad_(True)
-        adam_opt = Adam([bx], lr=learning_rate, amsgrad=True)
+        imgs = util.denormalize(imgs)
+        adam_opt = Adam([bx], lr=1e-3, amsgrad=True)
+        # import pdb; pdb.set_trace()
         imgs = imgs.type(tensor_type)
-        imgs = imgs.to(device)
-        imgs_2 = imgs_2.type(tensor_type)
-        imgs_2 = imgs_2.to(device)
+        imgs = imgs.to(self.device)
+        # imgs_2 = imgs_2.type(tensor_type)
+        # imgs_2 = imgs_2.to(self.device)
         #(1,23625,6)
         
-        for iter in tqdm(range(epochs)):
+        max_count = -1
+        
+        for iter in tqdm(range(self.epochs)):
             added_imgs = imgs+bx
-            added_imgs_2 = imgs_2+bx
+            # added_imgs_2 = imgs_2+bx
             
             l2_norm = torch.sqrt(torch.mean(bx ** 2))
             l1_norm = torch.norm(bx, p=1)/(bx.shape[3]*bx.shape[2])
             added_imgs.clamp_(min=0, max=1)
-            added_imgs_2.clamp_(min=0, max=1)
+            # added_imgs_2.clamp_(min=0, max=1)
             input_imgs = (added_imgs - rgb_means)/std # lifang535: 为什么要减去 rgb_means，改
-            input_imgs_2 = (added_imgs_2 - rgb_means)/std
+            # input_imgs_2 = (added_imgs_2 - rgb_means)/std
             if half:
                 input_imgs = input_imgs.half()
                 input_imgs_2 = input_imgs_2.half()
             # outputs = model(input_imgs)[0] # lifang535 remove
             # outputs_2 = model(input_imgs_2)[0] # lifang535 remove
             outputs = model(added_imgs) # lifang535 add
-            outputs_2 = model(added_imgs_2) # lifang535 add
-            bx = run_attack(outputs,outputs_2,bx, strategy[self.cur_iter], max_tracker_num, adam_opt)
+            # outputs_2 = model(added_imgs_2) # lifang535 add
+            bx, count = run_attack(outputs, None, bx, strategy[self.cur_iter], max_tracker_num, adam_opt)
+            
+            max_count = max(count, max_count)
+
+            if type(count) != type(1) :
+                count = count.item()
+            if type(max_count) != type(1):
+                max_count = max_count.item()
+                
+            tqdm.write(f"image_name: {image_name} iter: {iter} count: {count} clean_count: {clean_count}")
+        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(clean_count), "corrupted_bbox_num": int(max_count)}
+
 
         # if strategy == max_tracker_num-1:
         #     strategy = 0
@@ -304,8 +335,8 @@ class StraAttack:
         print(added_imgs.shape)
         added_blob = torch.clamp(added_imgs*255,0,255).squeeze().permute(1, 2, 0).detach().cpu().numpy()
         added_blob = added_blob[..., ::-1]
-        added_blob_2 = torch.clamp(added_imgs_2*255,0,255).squeeze().permute(1, 2, 0).detach().cpu().numpy()
-        added_blob_2 = added_blob_2[..., ::-1]
+        # added_blob_2 = torch.clamp(added_imgs_2*255,0,255).squeeze().permute(1, 2, 0).detach().cpu().numpy()
+        # added_blob_2 = added_blob_2[..., ::-1]
         
         # input_path = f"{input_dir}/{image_name}"
         # output_path = f"{output_dir}/{image_name}"
@@ -341,9 +372,9 @@ class StraAttack:
         del bx
         del adam_opt
         del outputs
-        del outputs_2
+        # del outputs_2
         del imgs
-        del imgs_2
+        # del imgs_2
 
         return mean_l1,mean_l2
 
@@ -385,7 +416,20 @@ class StraAttack:
         """
         # for image, image_name in zip(self.image_list, self.image_name_list):
         # 每次处理两张图片
-        for i in range(0, len(self.image_list), 2):
+        # for i in range(0, len(self.image_list), 2):
+        
+        device_id = 0
+
+        for index, example in tqdm(enumerate(self.image_list), total=self.image_list.__len__(), desc="Processing COCO data"):
+            image_id, image, width, height, bbox_id, category, gt_boxes, area = util.parse_example(example)
+            assert len(bbox_id) == len(category) == len(gt_boxes) == len(area)
+            
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+            
+            mean_l1, mean_l2 = self.evaluate(image, image_id, None, None, len(bbox_id))
+            
+            continue
             image = self.image_list[i]
             image_name = self.image_name_list[i]
 

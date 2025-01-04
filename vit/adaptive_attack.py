@@ -4,15 +4,15 @@ from tqdm import tqdm
 
 import torch
 
-from yolox.utils import (
-    gather,
-    is_main_process,
-    postprocess,
-    synchronize,
-    time_synchronized,
-    xyxy2xywh
-)
-
+# from yolox.utils import (
+#     gather,
+#     is_main_process,
+#     postprocess,
+#     synchronize,
+#     time_synchronized,
+#     xyxy2xywh
+# )
+import CONSTANTS
 import contextlib
 import io
 import os
@@ -37,6 +37,9 @@ from models.common import DetectMultiBackend
 from utils.general import Profile, non_max_suppression
 
 from PIL import Image
+from torchvision import transforms
+sys.path.append("../captioning")
+from ms_captioning import MSCaptioning
 import logging
 
 
@@ -106,59 +109,21 @@ def threshold_fitting(scores, height, width, area_thres=900, height_max=1088, wi
     return scores, height, width
     
 
-def run_attack(outputs,bx, strategy, max_tracker_num, adam_opt):
-    global epoch_id
+def run_attack(outputs,bx, strategy, max_tracker_num, adam_opt, epoch_id, clean_count, count, mask, device):
+
     
-    outputs = outputs[0][0] # lifang535 add
+    # outputs = outputs[0][0] # lifang535 add
     
     per_num_b = (25*45)/max_tracker_num
     per_num_m = (50*90)/max_tracker_num
     per_num_s = (100*180)/max_tracker_num
 
-    scores = outputs[:,index] * outputs[:,4]
-    height = outputs[:,2]
-    width = outputs[:,3]
+    scores = outputs['scores'].view(-1)  # Flatten scores
+    boxes = outputs['boxes']  # Shape: [N, 4]
     
-    # print(f"scores.shape = {scores.shape}, height.shape = {height.shape}, width.shape = {width.shape}")
-    
-    # Adaptive attack for threshold
-    # scores, height, width = threshold_fitting(scores, height, width)
-    
-    # # 下面的代码速度慢
-    # for i in range(len(scores)):
-    #     if height[i] * width[i] < 900:
-    #         scores[i] = 0.0
-    #         # height[i] = 1088
-    #         # width[i] = 608
-    
-    # # 下面的代码速度慢
-    # sel_aaa_1 = []
-    # for i in range(len(scores)):
-    #     sel_aaa_1.append((width[i]/1088) * (height[i]/608))
-    
-    # # scores 加快速度，根据 area_thres 选取 box
-    # scores_1 = scores[height * width >= 900]
-    # scores_2 = scores[height * width < 900]
-    # scores = torch.cat((scores_1, torch.zeros_like(scores_2)), dim=0)
-
-
-    # sel_scores_b = scores[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
-    # sel_scores_m = scores[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
-    # sel_scores_s = scores[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
-    # sel_height_b = height[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
-    # sel_height_m = height[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
-    # sel_height_s = height[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
-    # sel_width_b = width[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
-    # sel_width_m = width[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
-    # sel_width_s = width[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
-    # sel_dets = torch.cat((sel_scores_b, sel_scores_m, sel_scores_s), dim=0)
-    # sel_height = torch.cat((sel_height_b, sel_height_m, sel_height_s), dim=0)
-    # sel_width = torch.cat((sel_width_b, sel_width_m, sel_width_s), dim=0)
-    # sel_aaa = (sel_width/640) * (sel_height/640)
-    
-    # print(f"scores.shape = {scores.shape}, height.shape = {height.shape}, width.shape = {width.shape}")
-    # print(f"sel_dets.shape = {sel_dets.shape}, sel_height.shape = {sel_height.shape}, sel_width.shape = {sel_width.shape}, sel_aaa.shape = {sel_aaa.shape}")
-    # time.sleep(5)
+    # Calculate heights and widths from boxes
+    height = boxes[:, 3] - boxes[:, 1]  # y2 - y1
+    width = boxes[:, 2] - boxes[:, 0]   # x2 - x1
     
     sel_dets = scores
     sel_height = height
@@ -166,31 +131,89 @@ def run_attack(outputs,bx, strategy, max_tracker_num, adam_opt):
     sel_aaa = (sel_width/1088) * (sel_height/608)
     
     loss4 = 100*torch.sum(sel_aaa) # lifang535: 相较于 stra_attack，这里的 loss4 是对所有的 box 的面积求和
-    targets = torch.ones_like(sel_dets)
-    loss1 = 10*(F.mse_loss(sel_dets, targets, reduction='sum')) # lifang535: 和 feature matching 有关
+    loss1_targets = torch.ones_like(sel_dets)
+    loss1 = 10*(F.mse_loss(sel_dets, loss1_targets, reduction='sum'))
     loss2 = 40*torch.norm(bx, p=2)
-    targets = torch.ones_like(scores) # lifang535 remove
-    # targets = torch.zeros_like(scores) # lifang535 add
-    loss3 = 1.0*(F.mse_loss(scores, targets, reduction='sum'))
+    loss3_targets = torch.ones_like(scores) # lifang535 remove
+    loss3 = 1.0*(F.mse_loss(scores, loss3_targets, reduction='sum'))
     # loss = loss1+loss4#+loss3#+loss2 # lifang535 remove
     # loss = loss1+loss4+loss3+loss2 # lifang535 add
     # loss = loss3
-    if epoch_id <= 50:  # lifang535: for new attack
-        loss = loss3 # lifang535 add # lifang535: for new attack
-    else:  # lifang535: for new attack
-        loss = loss4+10*loss3+10*loss2  # lifang535: for new attack
-    # loss = loss1+loss4+loss3+10*loss2 # lifang535 add
+    good = (count / (clean_count+1e-4)) >= 3.0 or count >=60
     
-    loss.requires_grad_(True)
+    # factor_l2 = 10.
+    # factor_l3 = 10.
+    # factor_l4 = 1.
+    CONSTANTS.MAX_COUNT = 100
+    e = epoch_id
+    n = count
+    import math
+    # factor_l2 = 1 + 9 * (1 / (1 + math.exp(-3 * (e/n - 1)))) 
+    # factor_l3 = 10 + 90 * math.cos(min(n/50, 1) * math.pi/2)
+    # factor_l4 = (1 / (1 + math.exp(-3 * (e/n - 1)))) * max(0, 1 - n/50) 
+
+    G = math.sin(min((epoch_id/100.)*math.pi/2, math.pi/2))
+    H = G
+    factor_l2 = G
+    factor_l3 = 3 - G - H
+    factor_l4 = H
+    
+    new_loss = factor_l2 * loss2 + factor_l3 * loss3 + factor_l4 * loss4
+    # new_loss = loss2 + 100 * loss3
+    new_loss.requires_grad_(True)
     adam_opt.zero_grad()
-    loss.backward(retain_graph=True)
-    
-    # adam_opt.step()
+    new_loss.backward(retain_graph=True)
     bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
     bx.data = -1.5 * bx.grad+ bx.data
     count = (scores > 0.25).sum()
-    print('loss',loss.item(),'loss_1',loss1.item(),'loss_2',loss2.item(),'loss_3',loss4.item(),'count:',count.item())
-    return bx
+    tqdm.write(f"factor 2: {factor_l2:.4f} factor 3: {factor_l3:.4f} factor 4: {factor_l4:.4f} ")
+
+    tqdm.write(f"loss: {new_loss:.4f} loss_1: {loss1:.4f} loss_2: {loss2:.4f} loss_3: {loss3:.4f} loss_4: {loss4:.4f} good: {good}")
+    tqdm.write("")
+
+    return bx, count   
+#TODO：改coefficient
+#TODO：justify 设计
+
+    # loss = loss3 * 100 + loss2
+    # loss.requires_grad_(True)
+    # loss.backward(retain_graph=True)
+    # bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
+    # bx.data = torch.clamp(-3.5 * mask * bx.grad+ bx.data, min=-0.2, max=0.2)
+    # count = (scores > 0.9).sum()
+    
+    if epoch_id <= 50:  # lifang535: for new attack
+        if count < CONSTANTS.MAX_COUNT-10:
+            loss = loss3 * 100 + loss2
+            # loss = loss3 # lifang535 add # lifang535: for new attack
+            # loss = loss3+2*(10000-loss2)
+        else:
+            loss = loss3 # lifang535 add # lifang535: for new attack
+        loss.requires_grad_(True)
+        adam_opt.zero_grad()
+        loss.backward(retain_graph=True)
+        bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
+        # bx.data = -3.5 * mask * bx.grad+ bx.data
+        bx.data = torch.clamp(-1.5 * bx.grad + bx.data, min=-0.2, max=0.2)
+        count = (scores > 0.9).sum()
+    else: 
+        if not good:# lifang535: for new attack
+            loss = factor_l4 * loss4 + factor_l3 * loss3 + factor_l2 *loss2 
+        else:
+            loss = loss2 + loss3 + loss4# lifang535: for new attack
+        
+        loss.requires_grad_(True)
+        adam_opt.zero_grad()
+        loss.backward(retain_graph=True)
+        
+        bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
+        bx.data = -1.5 * bx.grad+ bx.data
+        count = (scores > 0.25).sum()
+        
+    
+    tqdm.write(f"loss: {loss:.4f} loss_1: {loss1:.4f} loss_2: {loss2:.4f} loss_3: {loss3:.4f} loss_4: {loss4:.4f} good: {good}")
+
+    return bx, count          
 
 global_std = 1.0
 
@@ -309,7 +332,7 @@ class SingleAttack:
     """
 
     def __init__(
-        self, image_list, image_name_list, img_size): # args, dataloader, img_size, confthre, nmsthre, num_classes):
+        self, image_list, image_name_list, img_size, pipeline=None, epochs=None, device=None, results_dict={}): # args, dataloader, img_size, confthre, nmsthre, num_classes):
         """
         Args:
             dataloader (Dataloader): evaluate dataloader.
@@ -328,11 +351,21 @@ class SingleAttack:
         self.nmsthre = 0.45
         self.num_classes = None
         self.args = None
-
+        self.pipeline = pipeline
+        self.epochs = epochs
+        self.device = device  
+        self.results_dict = results_dict    
+        self.image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
+        self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(self.device)
+        self.model.eval()
+        self.names = CONSTANTS.DETR_DICT
+        self.learning_rate = 0.001
+        
     def evaluate(
         self,
         imgs,
         image_name,
+        clean_count,
         distributed=False,
         half=False,
         trt_file=None,
@@ -340,8 +373,7 @@ class SingleAttack:
         test_size=None,
         result_folder=None
     ):
-        global model, names, device
-        global epoch_id # lifang535: for new attack
+
         """
         COCO average precision (AP) Evaluation. Iterate inference on the test dataset
         and the results are evaluated by COCO API.
@@ -358,14 +390,14 @@ class SingleAttack:
         """
         # TODO half to amp_test
         tensor_type = torch.cuda.HalfTensor if half else torch.cuda.FloatTensor
-        model = model.eval()
-        if half:
-            model = model.half()
-        ids = []
-        data_list = []
-        results = []
-        video_names = defaultdict()
-        progress_bar = tqdm if is_main_process() else iter
+        # model = model.eval()
+        # if half:
+        #     model = model.half()
+        # ids = []
+        # data_list = []
+        # results = []
+        # video_names = defaultdict()
+        # progress_bar = tqdm if is_main_process() else iter
 
         if trt_file is not None:
             from torch2trt import TRTModule
@@ -382,26 +414,29 @@ class SingleAttack:
         total_l2 = 0
         strategy = 1
         max_tracker_num = int(8)
-        rgb_means=torch.tensor((0.485, 0.456, 0.406)).view(1, 3, 1, 1).to(device)
-        std=torch.tensor((0.229, 0.224, 0.225)).view(1, 3, 1, 1).to(device)
+        rgb_means=torch.tensor((0.485, 0.456, 0.406)).view(1, 3, 1, 1).to(self.device)
+        std=torch.tensor((0.229, 0.224, 0.225)).view(1, 3, 1, 1).to(self.device)
         # for cur_iter, (imgs,path) in enumerate(
         #     progress_bar(self.dataloader)
         #     ):
 
-        print('strategy:',strategy)
-        # print(path)
+        inputs = self.image_processor(images=imgs, return_tensors="pt").to(self.device)
+        imgs = inputs["pixel_values"]
         
         frame_id += 1
         bx = np.zeros((imgs.shape[1], imgs.shape[2], imgs.shape[3]))
         bx = bx.astype(np.float32)
-        bx = torch.from_numpy(bx).to(device).unsqueeze(0)
+        bx = torch.from_numpy(bx).to(self.device).unsqueeze(0)
         bx = bx.data.requires_grad_(True)
-        adam_opt = Adam([bx], lr=learning_rate, amsgrad=True)
-        imgs = imgs.type(tensor_type)
-        imgs = imgs.to(device)
-        #(1,23625,6)
+        adam_opt = Adam([bx], lr=self.learning_rate, amsgrad=True)
         
-        for iter in tqdm(range(epochs)):
+        imgs = util.denormalize(imgs)
+        
+        imgs = imgs.type(tensor_type)
+        imgs = imgs.to(self.device)
+        #(1,23625,6)
+        max_count = -1.0
+        for iter in tqdm(range(self.epochs)):
             epoch_id = iter # lifang535: for new attack
             
             added_imgs = imgs+bx
@@ -409,7 +444,7 @@ class SingleAttack:
             l2_norm = torch.sqrt(torch.mean(bx ** 2))
             l1_norm = torch.norm(bx, p=1)/(bx.shape[3]*bx.shape[2])
             added_imgs.clamp_(min=0, max=1)
-            input_imgs = (added_imgs - rgb_means)/std
+            # input_imgs = (added_imgs - rgb_means)/std
             if half:
                 input_imgs = input_imgs.half()
             # outputs = model(input_imgs) # lifang535 remove
@@ -418,10 +453,54 @@ class SingleAttack:
             
             # noise_imgs = add_gaussian_noise(added_imgs) # lifang535: robust_test
             # noise_imgs = add_spatial_smoothing(added_imgs) # lifang535: robust_test
-            noise_imgs = added_imgs
-            outputs = model(noise_imgs)
+            result = self.model(added_imgs) # lifang535 add
+            target_size = [imgs.shape[2:] for _ in range(1)]
+            outputs = self.image_processor.post_process_object_detection(result, 
+                                                                         threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                         target_sizes = target_size)[0]
+
+            scores = outputs["scores"]
+            count = (scores >= 0.25).sum() # original: > 0.3
+            from overload_attack import generate_mask
+            from overload_attack import _run_attack
+            if iter == 0:
+                mask = generate_mask(outputs,added_imgs.shape[3],added_imgs.shape[2]).to(self.device)
+                
+            bx, count = run_attack(outputs,bx, strategy, max_tracker_num, adam_opt, epoch_id, clean_count, count, mask, self.device)
+            # bx, count = _run_attack(None, outputs, bx, strategy, max_tracker_num, mask)
+            max_count = max(count, max_count)
+            target_size = [imgs.shape[2:] for _ in range(1)]
             
-            bx = run_attack(outputs,bx, strategy, max_tracker_num, adam_opt)
+            if type(count) != type(1) :
+                count = count.item()
+            if type(max_count) != type(1):
+                max_count = max_count.item()
+            tqdm.write(f"image_name: {image_name} iter: {iter} count: {count} clean_count: {clean_count}")
+        
+        if self.pipeline:
+            with torch.no_grad():
+                start_time = time.perf_counter()
+                # _result = self.model(added_imgs) 
+                # pdb.set_trace()
+                # _target_size = [imgs.shape[2:] for _ in range(1)]
+                # self.image_processor.post_process_object_detection(_result, 
+                #                                                     threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                #                                                     target_sizes = _target_size)[0]
+
+                ms_captioning = MSCaptioning(device=self.device)
+                ms_captioning.load_processor_checkpoint()
+                ms_captioning.load_model()
+                caption = ms_captioning.inference(added_imgs)
+                # Stop measuring time
+                end_time = time.perf_counter()
+                
+                # Calculate elapsed time
+                elapsed_time = (end_time - start_time) * 1000
+        else:
+            elapsed_time = -1
+            
+        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(clean_count), "corrupted_bbox_num": int(max_count), "inference time": round(elapsed_time, 2)}
+
         if strategy == max_tracker_num-1:
             strategy = 0
         else:
@@ -431,16 +510,16 @@ class SingleAttack:
         added_blob = added_blob[..., ::-1]
         
         
-        input_path = f"{input_dir}/{image_name}"
-        output_path = f"{output_dir}/{image_name}"
-        cv2.imwrite(output_path, added_blob) # lifang535: 这个 attack 效果似乎不受小数位损失影响
+        # input_path = f"{input_dir}/{image_name}"
+        # output_path = f"{output_dir}/{image_name}"
+        # cv2.imwrite(output_path, added_blob) # lifang535: 这个 attack 效果似乎不受小数位损失影响
         
-        print(f"saved image to {output_path}")
-        objects_num_before_nms, objects_num_after_nms, person_num_after_nms, target_num_after_nms = infer(input_path)
-        _objects_num_before_nms, _objects_num_after_nms, _person_num_after_nms, _target_num_after_nms = infer(output_path)
+        # print(f"saved image to {output_path}")
+        # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, target_num_after_nms = infer(input_path)
+        # _objects_num_before_nms, _objects_num_after_nms, _person_num_after_nms, _target_num_after_nms = infer(output_path)
         
-        # logger.info(f"objects_num_before_nms: {objects_num_before_nms}, objects_num_after_nms: {objects_num_after_nms}, person_num_after_nms: {person_num_after_nms}, {attack_object}_num_after_nms: {target_num_after_nms}, _objects_num_before_nms: {_objects_num_before_nms}, _objects_num_after_nms: {_objects_num_after_nms}, _person_num_after_nms: {_person_num_after_nms}, _{attack_object}_num_after_nms: {_target_num_after_nms}")
-        logger.info(f"{objects_num_before_nms} {objects_num_after_nms} {person_num_after_nms} {target_num_after_nms} {_objects_num_before_nms} {_objects_num_after_nms} {_person_num_after_nms} {_target_num_after_nms}")
+        # # logger.info(f"objects_num_before_nms: {objects_num_before_nms}, objects_num_after_nms: {objects_num_after_nms}, person_num_after_nms: {person_num_after_nms}, {attack_object}_num_after_nms: {target_num_after_nms}, _objects_num_before_nms: {_objects_num_before_nms}, _objects_num_after_nms: {_objects_num_after_nms}, _person_num_after_nms: {_person_num_after_nms}, _{attack_object}_num_after_nms: {_target_num_after_nms}")
+        # logger.info(f"{objects_num_before_nms} {objects_num_after_nms} {person_num_after_nms} {target_num_after_nms} {_objects_num_before_nms} {_objects_num_after_nms} {_person_num_after_nms} {_target_num_after_nms}")
 
         
         # save_dir = path[0].replace("ori_img.jpg", "rao_img_3.png")
@@ -483,16 +562,17 @@ class SingleAttack:
         # result_file_path = path[0].replace("ori_img.jpg", "kuang_4.png")
         # cv2.imwrite(result_file_path, hua_2_img)
         
-        print(l1_norm.item(),l2_norm.item())
+        # print(l1_norm.item(),l2_norm.item())              
         total_l1 += l1_norm
         total_l2 += l2_norm
         mean_l1 = total_l1/frame_id
         mean_l2 = total_l2/frame_id
-        print(mean_l1.item(),mean_l2.item())
+        # print(mean_l1.item(),mean_l2.item())
         del bx
         del adam_opt
         del outputs
         del imgs
+        del count
 
         return mean_l1,mean_l2
 
@@ -532,6 +612,18 @@ class SingleAttack:
         """
         Run the evaluation.
         """
+        for index, example in tqdm(enumerate(self.image_list), total=self.image_list.__len__(), desc="Processing COCO data"):
+            
+            image_id, image, width, height, bbox_id, category, gt_boxes, area = util.parse_example(example)
+            assert len(bbox_id) == len(category) == len(gt_boxes) == len(area)
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+            
+            mean_l1, mean_l2 = self.evaluate(image, image_id, len(bbox_id))
+            continue
+        
+        return
+    
         for image, image_name in zip(self.image_list, self.image_name_list):
             image = image.transpose((2, 0, 1))[::-1]
             image = np.ascontiguousarray(image)
@@ -544,6 +636,40 @@ class SingleAttack:
             # print(f"image.shape = {image.shape}")
             
             mean_l1, mean_l2 = self.evaluate(image, image_name)
+
+class EarlyStopping:
+    def __init__(self, patience=5, min_delta=0.001):
+        """
+        Args:
+            patience (int): How many epochs to wait after the last time the loss improved.
+            min_delta (float): Minimum change in the loss to qualify as an improvement.
+        """
+        self.patience = patience
+        self.min_delta = min_delta
+        self.best_loss = None
+        self.counter = 0
+        self.early_stop = False
+
+    def __call__(self, loss):
+        """
+        Call this method at the end of each epoch to check if training should stop.
+        Args:
+            loss (float): The current epoch's loss.
+        """
+        # First epoch or first call
+        if self.best_loss is None:
+            self.best_loss = loss  # Set the initial best loss
+        elif loss > self.best_loss - self.min_delta:
+            # If current loss is significantly better (improved by `min_delta`)
+            self.best_loss = loss  # Update the best loss
+            self.counter = 0       # Reset the patience counter
+        else:
+            # No significant improvement
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.early_stop = True  # Trigger early stopping
+                self.best_loss = None
+                self.counter = 0
 
 
 def infer(image_path):
@@ -637,6 +763,14 @@ def dir_process(dir_path):
 
     return image_list, image_name_list
 
+import CONSTANTS
+import random
+from datasets import load_dataset
+from transformers import DetrConfig, DetrForObjectDetection, DetrImageProcessor
+from transformers import AutoImageProcessor
+import pdb
+import util
+random.seed(42)
 
 if __name__ == "__main__":
     # image_name = "000001.png"
@@ -670,7 +804,15 @@ if __name__ == "__main__":
     77: 'teddy bear', 78: 'hair drier', 79: 'toothbrush'}
     '''
     
+    device = torch.device('cuda:1')
+    image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
+    model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(device)
+    model.eval()
+    names = CONSTANTS.DETR_DICT
+    
     attack_object_key = 0 # 0: person, 2: car
+    attack_object = names[attack_object_key]
+    index = 5 + attack_object_key # yolov5 输出的结果中，class confidence 对应的 index
     
     # attack_method = f"adaptive_attack" # non_adaptive_attack adaptive_attack animal_test attack_threshold_defense
     # adaptive_attack_for_smoothing adaptive_attack_for_gaussian adaptive_attack_for_threshold
@@ -687,17 +829,17 @@ if __name__ == "__main__":
         learning_rate = 0.01 #0.07
         
         # logger_path = f"adaptive_attack/log/{attack_object}_epochs_{epochs}.log"
-        logger_dir = f"{attack_method}/log/epochs_{epochs}"
-        if not os.path.exists(logger_dir):
-            os.makedirs(logger_dir)
-        logger_path = f"{logger_dir}/{attack_object_key}_{attack_object}.log"
+        # logger_dir = f"{attack_method}/log/epochs_{epochs}"
+        # if not os.path.exists(logger_dir):
+        #     os.makedirs(logger_dir)
+        # logger_path = f"{logger_dir}/{attack_object_key}_{attack_object}.log"
         
-        logger = create_logger(f"{attack_method}_{attack_object}_epochs_{epochs}", logger_path, logging.INFO)
+        # logger = create_logger(f"{attack_method}_{attack_object}_epochs_{epochs}", logger_path, logging.INFO)
 
         # input_dir = "animal/input"
         # output_dir = "animal/output"
-        input_dir = "original"
-        output_dir = f"{attack_method}/output/epochs_{epochs}/{attack_object_key}_{attack_object}" # 不保存 attack 后的图片，只保存 log
+        input_dir = "original_image"
+        output_dir = f"single_attack_image/{attack_object}_epochs_{epochs}"
         
         # start_time = time.time()
         
@@ -709,8 +851,10 @@ if __name__ == "__main__":
         
         sa = SingleAttack(
             image_list=image_list,
-            image_name_list=image_name_list,
+            image_name_list=None,
             img_size=img_size,
+            epochs=epochs,
+            device=None
         )
         
         sa.run()

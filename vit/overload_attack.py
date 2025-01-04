@@ -174,7 +174,7 @@ def run_attack(outputs,bx, strategy, max_tracker_num, mask):
     bx.data = -3.5 * mask * bx.grad+ bx.data
     count = (scores >= 0.25).sum() # original: > 0.3
     if __name__ == "__main__":
-        print(f"loss: {loss.item():.4f}, loss_2: {loss2.item():.4f}, loss_3: {loss3.item():.4f} \ncount: {count.item()}\n")
+        tqdm.write(f"loss: {loss.item():.4f}, loss_2: {loss2.item():.4f}, loss_3: {loss3.item():.4f} \ncount: {count.item()}\n")
     return bx
 
 def _run_attack(outputs,result,bx, strategy, max_tracker_num, mask):
@@ -192,18 +192,20 @@ def _run_attack(outputs,result,bx, strategy, max_tracker_num, mask):
     loss3 = F.mse_loss(scores, targets, reduction='sum')
     #TODO:
     #dynamic loss 3
-    loss = loss3 * 100 + loss2
-    # loss = loss3+2*(10000-loss2)
+    # loss = loss3 * 100 + loss2
+    loss = loss3+2*(10000-loss2)
+    # loss = loss3
     loss.requires_grad_(True)
     loss.backward(retain_graph=True)
     
     bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
     # bx.data = -3.5 * mask * bx.grad+ bx.data
     bx.data = torch.clamp(-3.5 * mask * bx.grad+ bx.data, min=-0.2, max=0.2)
+    # pdb.set_trace()
     count = (scores > 0.9).sum()
     if __name__ == "__main__":
       pass
-    print(f"loss: {loss.item():.4f}, loss_2: {loss2.item():.4f}, loss_3: {loss3.item():.4f}, count: {count.item()}")
+    tqdm.write(f"loss: {loss.item():.4f}, loss_2: {loss2.item():.4f}, loss_3: {loss3.item():.4f}, count: {count.item()}")
     return bx, count.item()
 
 class OverloadAttack:
@@ -244,6 +246,7 @@ class OverloadAttack:
         self,
         imgs,
         image_name,
+        clean_count,
         distributed=False,
         half=False,
         trt_file=None,
@@ -315,6 +318,8 @@ class OverloadAttack:
         # if half:
         #     model = model.half()
         imgs = util.denormalize(imgs)
+        max_count = -1.0
+
         for iter in tqdm(range(self.epochs)):
             added_imgs = imgs+bx
             l2_norm = torch.sqrt(torch.mean(bx ** 2))
@@ -334,14 +339,15 @@ class OverloadAttack:
                                                                     threshold = CONSTANTS.POST_PROCESS_THRESH, 
                                                                     target_sizes = target_size)[0]
 
-    
             if iter == 0:
                 mask = generate_mask(outputs,added_imgs.shape[3],added_imgs.shape[2]).to(self.device)
-                clean_bbox_scores = outputs["scores"]
-                clean_bbox_count = (clean_bbox_scores > 0.9).sum()
+
+
             # bx = run_attack(outputs, bx, strategy, max_tracker_num, mask)
             bx, bbox_count = _run_attack(None, outputs, bx, strategy, max_tracker_num, mask)
-        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(clean_bbox_count.item()), "corrupted_bbox_num": bbox_count}
+            max_count = max(bbox_count, max_count)
+
+        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(clean_count), "corrupted_bbox_num": max_count}
         # pdb.set_trace()
         
         if strategy == max_tracker_num-1:
@@ -466,7 +472,7 @@ class OverloadAttack:
                 image = image.convert("RGB")
             
             
-            mean_l1, mean_l2 = self.evaluate(image, image_id)
+            mean_l1, mean_l2 = self.evaluate(image, image_id, len(bbox_id))
             
             continue
             image = image.transpose((2, 0, 1))[::-1]
@@ -536,7 +542,7 @@ def infer_tensor(image_tensor): # 0 ~ 1
         # print(f"There are {len(det)} objects detected in this image.")
     
     # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
-    print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
+    tqdm.write(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
     return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
     
         
@@ -586,7 +592,7 @@ def infer_image(image_array): # BGR, 0 ~ 255
         # print(f"There are {len(det)} objects detected in this image.")
     
     # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
-    print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
+    tqdm.write(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
     return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
 
     
@@ -654,7 +660,7 @@ def infer(image_path):
         # print(f"There are {len(det)} objects detected in this image.")
     
     # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
-    print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
+    tqdm.write(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
     return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
 
 
