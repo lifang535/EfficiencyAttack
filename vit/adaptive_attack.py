@@ -34,8 +34,8 @@ from pathlib import Path
 YOLOV5_FILE = Path(f"../model/yolov5").resolve()
 if str(YOLOV5_FILE) not in sys.path:
     sys.path.append(str(YOLOV5_FILE))  # add ROOT to PATH
-from models.common import DetectMultiBackend
-from utils.general import Profile, non_max_suppression
+# from models.common import DetectMultiBackend
+# from utils.general import Profile, non_max_suppression
 
 from PIL import Image
 from torchvision import transforms
@@ -339,15 +339,15 @@ class SingleAttack:
         # video_names = defaultdict()
         # progress_bar = tqdm if is_main_process() else iter
 
-        if trt_file is not None:
-            from torch2trt import TRTModule
+        # if trt_file is not None:
+        #     from torch2trt import TRTModule
 
-            model_trt = TRTModule()
-            model_trt.load_state_dict(torch.load(trt_file))
+        #     model_trt = TRTModule()
+        #     model_trt.load_state_dict(torch.load(trt_file))
 
-            x = torch.ones(1, 3, test_size[0], test_size[1]).cuda()
-            model(x)
-            model = model_trt
+        #     x = torch.ones(1, 3, test_size[0], test_size[1]).cuda()
+        #     model(x)
+        #     model = model_trt
             
         frame_id = 0
         total_l1 = 0
@@ -672,73 +672,73 @@ class EarlyStopping:
                 self.counter = 0
 
 
-def infer(image_path):
-    image = cv2.imread(image_path)
-    # print(f"image.shape = {image.shape}") # (608, 1088, 3)
-    # print(f"image = {image}")
+# def infer(image_path):
+#     image = cv2.imread(image_path)
+#     # print(f"image.shape = {image.shape}") # (608, 1088, 3)
+#     # print(f"image = {image}")
 
-    image = image.transpose((2, 0, 1))[::-1]
-    image = np.ascontiguousarray(image)
-    image = torch.from_numpy(image).to(device).float()
-    image /= 255.0
+#     image = image.transpose((2, 0, 1))[::-1]
+#     image = np.ascontiguousarray(image)
+#     image = torch.from_numpy(image).to(device).float()
+#     image /= 255.0
     
-    if len(image.shape) == 3:
-        image = image[None]
+#     if len(image.shape) == 3:
+#         image = image[None]
     
-    # tensor_type = torch.cuda.FloatTensor
-    # image_tensor = image.type(tensor_type)
-    # image_tensor = image.to(device)
+#     # tensor_type = torch.cuda.FloatTensor
+#     # image_tensor = image.type(tensor_type)
+#     # image_tensor = image.to(device)
     
-    image_tensor = image
+#     image_tensor = image
     
-    # print(f"image_tensor = {image_tensor}")
+#     # print(f"image_tensor = {image_tensor}")
     
-    outputs = model(image_tensor)
+#     outputs = model(image_tensor)
     
-    # print(f"outputs = {outputs}")
+#     # print(f"outputs = {outputs}")
     
-    outputs = outputs[0].unsqueeze(0)
+#     outputs = outputs[0].unsqueeze(0)
     
-    # scores = outputs[..., index] * outputs[..., 4]
-    # scores = scores[scores > 0.25]
-    # print(f"len(scores) = {len(scores)}")
-    # objects_num_before_nms = len(scores) # 实际上是 {attack_object} number before NMS
+#     # scores = outputs[..., index] * outputs[..., 4]
+#     # scores = scores[scores > 0.25]
+#     # print(f"len(scores) = {len(scores)}")
+#     # objects_num_before_nms = len(scores) # 实际上是 {attack_object} number before NMS
     
-    conf_thres = 0.25 # 0.25  # confidence threshold
-    iou_thres = 0.45  # 0.45  # NMS IOU threshold
-    max_det = 100000    # maximum detections per image
+#     conf_thres = 0.25 # 0.25  # confidence threshold
+#     iou_thres = 0.45  # 0.45  # NMS IOU threshold
+#     max_det = 100000    # maximum detections per image
     
-    xc = outputs[..., 4] > 0
-    x = outputs[0][xc[0]]
-    x[:, 5:] *= x[:, 4:5]
-    max_scores = x[:, 5:].max(dim=-1).values
-    objects_num_before_nms = len(max_scores[max_scores > 0.25]) # 这个是对的，用最大的 class confidence 筛选
+#     xc = outputs[..., 4] > 0
+#     x = outputs[0][xc[0]]
+#     x[:, 5:] *= x[:, 4:5]
+#     max_scores = x[:, 5:].max(dim=-1).values
+#     objects_num_before_nms = len(max_scores[max_scores > 0.25]) # 这个是对的，用最大的 class confidence 筛选
     
-    objects_num_after_nms = 0
-    person_num_after_nms = 0
-    target_num_after_nms = 0
+#     objects_num_after_nms = 0
+#     person_num_after_nms = 0
+#     target_num_after_nms = 0
     
-    outputs = non_max_suppression(outputs, conf_thres, iou_thres, max_det=max_det)
+#     outputs = non_max_suppression(outputs, conf_thres, iou_thres, max_det=max_det)
         
-    for i, det in enumerate(outputs): # detections per image
-        if len(det):
-            for *xyxy, conf, cls in reversed(det):
-                c = int(cls)
-                label = f"{names[c]}"
-                confidence = float(conf)
-                confidence_str = f"{confidence}" # f"{confidence:.2f}"
-                box = [round(float(i), 2) for i in xyxy]
-                # print(f"Detected {label} with confidence {confidence_str} at location {box}")
-                if label == "person":
-                    person_num_after_nms += 1
-                if label == attack_object:
-                    target_num_after_nms += 1
-            objects_num_after_nms = len(det)
-        # print(f"There are {len(det)} objects detected in this image.")
+#     for i, det in enumerate(outputs): # detections per image
+#         if len(det):
+#             for *xyxy, conf, cls in reversed(det):
+#                 c = int(cls)
+#                 label = f"{names[c]}"
+#                 confidence = float(conf)
+#                 confidence_str = f"{confidence}" # f"{confidence:.2f}"
+#                 box = [round(float(i), 2) for i in xyxy]
+#                 # print(f"Detected {label} with confidence {confidence_str} at location {box}")
+#                 if label == "person":
+#                     person_num_after_nms += 1
+#                 if label == attack_object:
+#                     target_num_after_nms += 1
+#             objects_num_after_nms = len(det)
+#         # print(f"There are {len(det)} objects detected in this image.")
     
-    # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, target_num_after_nms
-    print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, {attack_object}_num_after_nms = {target_num_after_nms}")
-    return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, target_num_after_nms
+#     # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, target_num_after_nms
+#     print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, {attack_object}_num_after_nms = {target_num_after_nms}")
+#     return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, target_num_after_nms
 
 
 def dir_process(dir_path):
@@ -784,11 +784,11 @@ if __name__ == "__main__":
     # time.sleep(10000000)
 
     # weights = "../model/yolov5/yolov5n.pt" # yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
-    weights = "./model/yolov5n.pt" # yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
-    device = torch.device('cuda:1')
-    model = DetectMultiBackend(weights=weights, device=device)
-    names = model.names
-    print(f"names = {names}")
+    # weights = "./model/yolov5n.pt" # yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
+    # device = torch.device('cuda:1')
+    # model = DetectMultiBackend(weights=weights, device=device)
+    # names = model.names
+    # print(f"names = {names}")
     '''
     names = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 
     7: 'truck', 8: 'boat', 9: 'traffic light', 10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 

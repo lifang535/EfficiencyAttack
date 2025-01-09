@@ -53,8 +53,8 @@ YOLOV5_FILE = Path(f"../../yolov5").resolve()
 if str(YOLOV5_FILE) not in sys.path:
     sys.path.append(str(YOLOV5_FILE))  # add ROOT to PATH
     
-from models.common import DetectMultiBackend
-from utils.general import Profile, non_max_suppression
+# from models.common import DetectMultiBackend
+# from utils.general import Profile, non_max_suppression
 
 from PIL import Image
 import logging
@@ -246,15 +246,15 @@ class SingleAttack:
         # video_names = defaultdict()
         # progress_bar = tqdm if is_main_process() else iter
 
-        if trt_file is not None:
-            from torch2trt import TRTModule
+        # if trt_file is not None:
+        #     from torch2trt import TRTModule
 
-            model_trt = TRTModule()
-            model_trt.load_state_dict(torch.load(trt_file))
+        #     model_trt = TRTModule()
+        #     model_trt.load_state_dict(torch.load(trt_file))
 
-            x = torch.ones(1, 3, test_size[0], test_size[1]).cuda()
-            model(x)
-            model = model_trt
+        #     x = torch.ones(1, 3, test_size[0], test_size[1]).cuda()
+        #     model(x)
+        #     model = model_trt
             
         frame_id = 0
         total_l1 = 0
@@ -439,65 +439,65 @@ class SingleAttack:
             
             continue
 
-def infer(image_path):
-    image = cv2.imread(image_path)
+# def infer(image_path):
+#     image = cv2.imread(image_path)
 
-    image = image.transpose((2, 0, 1))[::-1]
-    image = np.ascontiguousarray(image)
-    image = torch.from_numpy(image).to(device).float()
-    image /= 255.0
+#     image = image.transpose((2, 0, 1))[::-1]
+#     image = np.ascontiguousarray(image)
+#     image = torch.from_numpy(image).to(device).float()
+#     image /= 255.0
     
-    if len(image.shape) == 3:
-        image = image[None]
+#     if len(image.shape) == 3:
+#         image = image[None]
     
-    # tensor_type = torch.cuda.FloatTensor
-    # image_tensor = image.type(tensor_type)
-    # image_tensor = image.to(device)
+#     # tensor_type = torch.cuda.FloatTensor
+#     # image_tensor = image.type(tensor_type)
+#     # image_tensor = image.to(device)
     
-    image_tensor = image
+#     image_tensor = image
     
     
-    outputs = model(image_tensor)
+#     outputs = model(image_tensor)
         
-    outputs = outputs[0].unsqueeze(0)
+#     outputs = outputs[0].unsqueeze(0)
     
-    # scores = outputs[..., index] * outputs[..., 4]
-    # scores = scores[scores > 0.25]
-    # objects_num_before_nms = len(scores) # 实际上是 {attack_object} number before NMS
+#     # scores = outputs[..., index] * outputs[..., 4]
+#     # scores = scores[scores > 0.25]
+#     # objects_num_before_nms = len(scores) # 实际上是 {attack_object} number before NMS
     
-    conf_thres = 0.25 # 0.25  # confidence threshold
-    iou_thres = 0.45  # 0.45  # NMS IOU threshold
-    max_det = 100000    # maximum detections per image
+#     conf_thres = 0.25 # 0.25  # confidence threshold
+#     iou_thres = 0.45  # 0.45  # NMS IOU threshold
+#     max_det = 100000    # maximum detections per image
     
-    xc = outputs[..., 4] > 0
-    x = outputs[0][xc[0]]
-    x[:, 5:] *= x[:, 4:5]
-    max_scores = x[:, 5:].max(dim=-1).values
-    objects_num_before_nms = len(max_scores[max_scores > 0.25]) # 这个是对的，用最大的 class confidence 筛选
+#     xc = outputs[..., 4] > 0
+#     x = outputs[0][xc[0]]
+#     x[:, 5:] *= x[:, 4:5]
+#     max_scores = x[:, 5:].max(dim=-1).values
+#     objects_num_before_nms = len(max_scores[max_scores > 0.25]) # 这个是对的，用最大的 class confidence 筛选
     
-    objects_num_after_nms = 0
-    person_num_after_nms = 0
-    car_num_after_nms = 0
+#     objects_num_after_nms = 0
+#     person_num_after_nms = 0
+#     car_num_after_nms = 0
     
-    outputs = non_max_suppression(outputs, conf_thres, iou_thres, max_det=max_det)
+#     outputs = non_max_suppression(outputs, conf_thres, iou_thres, max_det=max_det)
     
-    for i, det in enumerate(outputs): # detections per image
-        if len(det):
-            for *xyxy, conf, cls in reversed(det):
-                c = int(cls)
-                label = f"{names[c]}"
-                confidence = float(conf)
-                confidence_str = f"{confidence}" # f"{confidence:.2f}"
-                box = [round(float(i), 2) for i in xyxy]
-                if label == "person":
-                    person_num_after_nms += 1
-                elif label == "car":
-                    car_num_after_nms += 1
-            objects_num_after_nms = len(det)
+#     for i, det in enumerate(outputs): # detections per image
+#         if len(det):
+#             for *xyxy, conf, cls in reversed(det):
+#                 c = int(cls)
+#                 label = f"{names[c]}"
+#                 confidence = float(conf)
+#                 confidence_str = f"{confidence}" # f"{confidence:.2f}"
+#                 box = [round(float(i), 2) for i in xyxy]
+#                 if label == "person":
+#                     person_num_after_nms += 1
+#                 elif label == "car":
+#                     car_num_after_nms += 1
+#             objects_num_after_nms = len(det)
     
-    # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
-    # print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
-    return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
+#     # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
+#     # print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
+#     return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
 
 
 def dir_process(dir_path):
@@ -532,10 +532,10 @@ if __name__ == "__main__":
     # infer(output_path)
     # time.sleep(10000000)
 
-    weights = "../model/yolov5/yolov5n.pt" # yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
-    device = torch.device('cuda:2')
-    model = DetectMultiBackend(weights=weights, device=device)
-    names = model.names
+    # weights = "../model/yolov5/yolov5n.pt" # yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
+    # device = torch.device('cuda:2')
+    # model = DetectMultiBackend(weights=weights, device=device)
+    # names = model.names
     
     device = torch.device('cuda:1')
     image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
