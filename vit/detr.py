@@ -26,16 +26,22 @@ import random
 import time
 
 parser = argparse.ArgumentParser(description="DETR hyperparam setup")
-parser.add_argument("--e", type=int, default=-999)
+parser.add_argument("--e", type=int, default=-1)
 parser.add_argument("--t", type=str, default="infer")
 parser.add_argument("--p", type=str, default=None)
+parser.add_argument("--i", type=int, default=-1)
 args = parser.parse_args()
+
+target_obj_idx = args.i 
+if_pipeline = args.p
 
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print("running on : ", device)
 
 image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
 model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(device)
+# model.config.num_queries = 1000
+
 model.eval()
 
 to_tensor = transforms.ToTensor()
@@ -44,7 +50,8 @@ if __name__ == "__main__":
   results_dict = {}
   # set up MS COCO 2017
   coco_data = load_dataset("detection-datasets/coco", split="val")
-  # pdb.set_trace()
+  
+
 
   random.seed(42)
   random_indices = random.sample(range(len(coco_data)), CONSTANTS.VAL_SUBSET_SIZE)
@@ -133,33 +140,10 @@ if __name__ == "__main__":
                                         image_name_list=None,
                                         img_size=None,
                                         epochs=args.e,
-                                        pipeline=args.p,
                                         device=device)
     ada.run()
     results_dict = ada.results_dict
-    # pdb.set_trace()
 
-    #TODO: change the overload method accordingly
-    # bbox_num = old_overload.attack(model, 
-    #                                image_processor, 
-    #                                inputs, 
-    #                                epochs=args.e,
-    #                                device=device)
-    
-    # results_dict[f"image_{image_id}"] = {"clean_bbox_num": int(clean_bbox_num.item()), "corrupted_bbox_num": bbox_num}
-    # pdb.set_trace()
-    
-    #TODO:
-    #saturate gradient -> early stop
-    #coefficient
-      
-  # if args.t == "infer":
-  #   output_path = "../prediction/detr_infer_result.json"
-  #   with open(output_path, "w") as f:
-  #     json.dump(results_dict, f, indent=4)
-
-  #   print(f"Evaluation results saved to {output_path}")
-    
 
   date_str = datetime.now().strftime("%Y%m%d_%H%M")
   output_path = f"../detr-prediction/{date_str}_{args.e}_{args.t}.json"

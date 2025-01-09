@@ -1,6 +1,7 @@
 from collections import defaultdict
 from loguru import logger
 from tqdm import tqdm
+import math
 
 import torch
 
@@ -40,6 +41,7 @@ from PIL import Image
 from torchvision import transforms
 sys.path.append("../captioning")
 from ms_captioning import MSCaptioning
+from detr import target_obj_idx, if_pipeline
 import logging
 
 
@@ -109,69 +111,7 @@ def threshold_fitting(scores, height, width, area_thres=900, height_max=1088, wi
     return scores, height, width
     
 
-def run_attack(outputs,bx, strategy, max_tracker_num, adam_opt, epoch_id, clean_count, count, mask, device):
 
-    
-    # outputs = outputs[0][0] # lifang535 add
-    
-    per_num_b = (25*45)/max_tracker_num
-    per_num_m = (50*90)/max_tracker_num
-    per_num_s = (100*180)/max_tracker_num
-
-    scores = outputs['scores'].view(-1)  # Flatten scores
-    boxes = outputs['boxes']  # Shape: [N, 4]
-    
-    # Calculate heights and widths from boxes
-    height = boxes[:, 3] - boxes[:, 1]  # y2 - y1
-    width = boxes[:, 2] - boxes[:, 0]   # x2 - x1
-    
-    sel_dets = scores
-    sel_height = height
-    sel_width = width
-    sel_aaa = (sel_width/1088) * (sel_height/608)
-    
-    loss4 = 100*torch.sum(sel_aaa) # lifang535: 相较于 stra_attack，这里的 loss4 是对所有的 box 的面积求和
-    loss1_targets = torch.ones_like(sel_dets)
-    loss1 = 10*(F.mse_loss(sel_dets, loss1_targets, reduction='sum'))
-    loss2 = 40*torch.norm(bx, p=2)
-    loss3_targets = torch.ones_like(scores) # lifang535 remove
-    loss3 = 1.0*(F.mse_loss(scores, loss3_targets, reduction='sum'))
-    # loss = loss1+loss4#+loss3#+loss2 # lifang535 remove
-    # loss = loss1+loss4+loss3+loss2 # lifang535 add
-    # loss = loss3
-    good = (count / (clean_count+1e-4)) >= 3.0 or count >=60
-    
-    # factor_l2 = 10.
-    # factor_l3 = 10.
-    # factor_l4 = 1.
-    CONSTANTS.MAX_COUNT = 100
-    e = epoch_id
-    n = count
-    import math
-    # factor_l2 = 1 + 9 * (1 / (1 + math.exp(-3 * (e/n - 1)))) 
-    # factor_l3 = 10 + 90 * math.cos(min(n/50, 1) * math.pi/2)
-    # factor_l4 = (1 / (1 + math.exp(-3 * (e/n - 1)))) * max(0, 1 - n/50) 
-
-    G = math.sin(min((epoch_id/100.)*math.pi/2, math.pi/2))
-    H = G
-    factor_l2 = G
-    factor_l3 = 3 - G - H
-    factor_l4 = H
-    
-    new_loss = factor_l2 * loss2 + factor_l3 * loss3 + factor_l4 * loss4
-    # new_loss = loss2 + 100 * loss3
-    new_loss.requires_grad_(True)
-    adam_opt.zero_grad()
-    new_loss.backward(retain_graph=True)
-    bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
-    bx.data = -1.5 * bx.grad+ bx.data
-    count = (scores > 0.25).sum()
-    tqdm.write(f"factor 2: {factor_l2:.4f} factor 3: {factor_l3:.4f} factor 4: {factor_l4:.4f} ")
-
-    tqdm.write(f"loss: {new_loss:.4f} loss_1: {loss1:.4f} loss_2: {loss2:.4f} loss_3: {loss3:.4f} loss_4: {loss4:.4f} good: {good}")
-    tqdm.write("")
-
-    return bx, count   
 #TODO：改coefficient
 #TODO：justify 设计
 
@@ -263,66 +203,65 @@ def add_spatial_smoothing(images, kernel_size=3):
     return smoothed_images
 
 
-# def run_attack(outputs,bx, strategy, max_tracker_num, adam_opt):
-#     global epoch_id
+def old_run_attack(outputs,bx, strategy, max_tracker_num, adam_opt):
+    global epoch_id
     
-#     outputs = outputs[0][0] # lifang535 add
+    outputs = outputs[0][0] # lifang535 add
     
-#     per_num_b = (25*45)/max_tracker_num
-#     per_num_m = (50*90)/max_tracker_num
-#     per_num_s = (100*180)/max_tracker_num
+    per_num_b = (25*45)/max_tracker_num
+    per_num_m = (50*90)/max_tracker_num
+    per_num_s = (100*180)/max_tracker_num
 
-#     scores = outputs[:,index] * outputs[:,4]
-#     height = outputs[:,2]
-#     width = outputs[:,3]
+    scores = outputs[:,index] * outputs[:,4]
+    height = outputs[:,2]
+    width = outputs[:,3]
 
-#     sel_scores_b = scores[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
-#     sel_scores_m = scores[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
-#     sel_scores_s = scores[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
-#     sel_height_b = height[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
-#     sel_height_m = height[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
-#     sel_height_s = height[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
-#     sel_width_b = width[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
-#     sel_width_m = width[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
-#     sel_width_s = width[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
+    sel_scores_b = scores[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
+    sel_scores_m = scores[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
+    sel_scores_s = scores[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
+    sel_height_b = height[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
+    sel_height_m = height[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
+    sel_height_s = height[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
+    sel_width_b = width[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
+    sel_width_m = width[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
+    sel_width_s = width[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
 
 
-#     sel_dets = torch.cat((sel_scores_b, sel_scores_m, sel_scores_s), dim=0)
-#     sel_height = torch.cat((sel_height_b, sel_height_m, sel_height_s), dim=0)
-#     sel_width = torch.cat((sel_width_b, sel_width_m, sel_width_s), dim=0)
-#     sel_aaa = (sel_width/640) * (sel_height/640)
+    sel_dets = torch.cat((sel_scores_b, sel_scores_m, sel_scores_s), dim=0)
+    sel_height = torch.cat((sel_height_b, sel_height_m, sel_height_s), dim=0)
+    sel_width = torch.cat((sel_width_b, sel_width_m, sel_width_s), dim=0)
+    sel_aaa = (sel_width/640) * (sel_height/640)
     
-#     # print(f"scores.shape = {scores.shape}, height.shape = {height.shape}, width.shape = {width.shape}")
-#     # print(f"sel_dets.shape = {sel_dets.shape}, sel_height.shape = {sel_height.shape}, sel_width.shape = {sel_width.shape}, sel_aaa.shape = {sel_aaa.shape}")
-#     # time.sleep(5)
+    # print(f"scores.shape = {scores.shape}, height.shape = {height.shape}, width.shape = {width.shape}")
+    # print(f"sel_dets.shape = {sel_dets.shape}, sel_height.shape = {sel_height.shape}, sel_width.shape = {sel_width.shape}, sel_aaa.shape = {sel_aaa.shape}")
+    # time.sleep(5)
     
-#     loss4 = 100*torch.sum(sel_aaa) # lifang535: 相较于 stra_attack，这里的 loss4 是对所有的 box 的面积求和
-#     targets = torch.ones_like(sel_dets)
-#     loss1 = 10*(F.mse_loss(sel_dets, targets, reduction='sum')) # lifang535: 和 feature matching 有关
-#     loss2 = 40*torch.norm(bx, p=2)
-#     targets = torch.ones_like(scores) # lifang535 remove
-#     # targets = torch.zeros_like(scores) # lifang535 add
-#     loss3 = 1.0*(F.mse_loss(scores, targets, reduction='sum'))
-#     # loss = loss1+loss4#+loss3#+loss2 # lifang535 remove
-#     # loss = loss1+loss4+loss3+loss2 # lifang535 add
-#     # loss = loss3
-#     if epoch_id <= 50:  # lifang535: for new attack
-#         loss = loss3 # lifang535 add # lifang535: for new attack
-#     else:  # lifang535: for new attack
-#         loss = loss1+loss4+loss3+loss2  # lifang535: for new attack
-#     # loss = loss1+loss4+loss3+10*loss2 # lifang535 add
+    loss4 = 100*torch.sum(sel_aaa) # lifang535: 相较于 stra_attack，这里的 loss4 是对所有的 box 的面积求和
+    targets = torch.ones_like(sel_dets)
+    loss1 = 10*(F.mse_loss(sel_dets, targets, reduction='sum')) # lifang535: 和 feature matching 有关
+    loss2 = 40*torch.norm(bx, p=2)
+    targets = torch.ones_like(scores) # lifang535 remove
+    # targets = torch.zeros_like(scores) # lifang535 add
+    loss3 = 1.0*(F.mse_loss(scores, targets, reduction='sum'))
+    # loss = loss1+loss4#+loss3#+loss2 # lifang535 remove
+    # loss = loss1+loss4+loss3+loss2 # lifang535 add
+    # loss = loss3
+    if epoch_id <= 50:  # lifang535: for new attack
+        loss = loss3 # lifang535 add # lifang535: for new attack
+    else:  # lifang535: for new attack
+        loss = loss1+loss4+loss3+loss2  # lifang535: for new attack
+    # loss = loss1+loss4+loss3+10*loss2 # lifang535 add
     
-#     loss.requires_grad_(True)
-#     adam_opt.zero_grad()
-#     loss.backward(retain_graph=True)
+    loss.requires_grad_(True)
+    adam_opt.zero_grad()
+    loss.backward(retain_graph=True)
     
-#     # adam_opt.step()
-#     bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
-#     bx.data = -1.5 * bx.grad+ bx.data
-#     count = (scores > 0.25).sum()
-#     print('loss',loss.item(),'loss_1',loss1.item(),'loss_2',loss2.item(),'loss_3',loss4.item(),'count:',count.item())
-#     return bx
-
+    # adam_opt.step()
+    bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
+    bx.data = -1.5 * bx.grad+ bx.data
+    count = (scores > 0.25).sum()
+    print('loss',loss.item(),'loss_1',loss1.item(),'loss_2',loss2.item(),'loss_3',loss4.item(),'count:',count.item())
+    return bx
 
 
 class SingleAttack:
@@ -332,7 +271,7 @@ class SingleAttack:
     """
 
     def __init__(
-        self, image_list, image_name_list, img_size, pipeline=None, epochs=None, device=None, results_dict={}): # args, dataloader, img_size, confthre, nmsthre, num_classes):
+        self, image_list, image_name_list, img_size, epochs=None, device=None, results_dict={}): # args, dataloader, img_size, confthre, nmsthre, num_classes):
         """
         Args:
             dataloader (Dataloader): evaluate dataloader.
@@ -351,7 +290,7 @@ class SingleAttack:
         self.nmsthre = 0.45
         self.num_classes = None
         self.args = None
-        self.pipeline = pipeline
+        self.pipeline = if_pipeline
         self.epochs = epochs
         self.device = device  
         self.results_dict = results_dict    
@@ -361,11 +300,12 @@ class SingleAttack:
         self.names = CONSTANTS.DETR_DICT
         self.learning_rate = 0.001
         
+        self.clean_count = -1
+        
     def evaluate(
         self,
         imgs,
         image_name,
-        clean_count,
         distributed=False,
         half=False,
         trt_file=None,
@@ -455,6 +395,7 @@ class SingleAttack:
             # noise_imgs = add_spatial_smoothing(added_imgs) # lifang535: robust_test
             result = self.model(added_imgs) # lifang535 add
             target_size = [imgs.shape[2:] for _ in range(1)]
+            self.img_height, self.img_width = target_size[0][0], target_size[0][1]
             outputs = self.image_processor.post_process_object_detection(result, 
                                                                          threshold = CONSTANTS.POST_PROCESS_THRESH, 
                                                                          target_sizes = target_size)[0]
@@ -465,17 +406,17 @@ class SingleAttack:
             from overload_attack import _run_attack
             if iter == 0:
                 mask = generate_mask(outputs,added_imgs.shape[3],added_imgs.shape[2]).to(self.device)
-                
-            bx, count = run_attack(outputs,bx, strategy, max_tracker_num, adam_opt, epoch_id, clean_count, count, mask, self.device)
+
+            bx, count = self.run_attack(outputs, result, bx, strategy, max_tracker_num, adam_opt, epoch_id, count, mask, self.device)
             # bx, count = _run_attack(None, outputs, bx, strategy, max_tracker_num, mask)
             max_count = max(count, max_count)
             target_size = [imgs.shape[2:] for _ in range(1)]
-            
+
             if type(count) != type(1) :
                 count = count.item()
             if type(max_count) != type(1):
                 max_count = max_count.item()
-            tqdm.write(f"image_name: {image_name} iter: {iter} count: {count} clean_count: {clean_count}")
+            tqdm.write(f"image_name: {image_name} iter: {iter} count: {count} clean_count: {self.clean_count}")
         
         if self.pipeline:
             with torch.no_grad():
@@ -499,7 +440,7 @@ class SingleAttack:
         else:
             elapsed_time = -1
             
-        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(clean_count), "corrupted_bbox_num": int(max_count), "inference time": round(elapsed_time, 2)}
+        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(self.clean_count), "corrupted_bbox_num": int(max_count), "inference time": round(elapsed_time, 2)}
 
         if strategy == max_tracker_num-1:
             strategy = 0
@@ -616,10 +557,11 @@ class SingleAttack:
             
             image_id, image, width, height, bbox_id, category, gt_boxes, area = util.parse_example(example)
             assert len(bbox_id) == len(category) == len(gt_boxes) == len(area)
+            self.clean_count = len(bbox_id)
             if image.mode != "RGB":
                 image = image.convert("RGB")
             
-            mean_l1, mean_l2 = self.evaluate(image, image_id, len(bbox_id))
+            mean_l1, mean_l2 = self.evaluate(image, image_id)
             continue
         
         return
@@ -636,6 +578,64 @@ class SingleAttack:
             # print(f"image.shape = {image.shape}")
             
             mean_l1, mean_l2 = self.evaluate(image, image_name)
+
+    def run_attack(self, output, results, bx, strategy, max_tracker_num, adam_opt, epoch_id, count, mask, device):
+
+        # Apply softmax to compute probabilities
+        logits = results.logits[0]
+        # probabilities = F.softmax(logits, dim=-1)  
+        probabilities = F.sigmoid(logits) 
+        max_probs, predicted_classes = probabilities.max(dim=-1)  # Shape: [100]
+        
+        # outputs = outputs[0][0] # lifang535 add
+        
+        per_num_b = (25*45)/max_tracker_num
+        per_num_m = (50*90)/max_tracker_num
+        per_num_s = (100*180)/max_tracker_num
+
+        scores, labels, boxes = util.parse_prediction(output)
+        # boxes = util.scale_boxes(boxes, self.img_height, self.img_width)
+        yolo_boxes = util.xxyy2xywh(boxes)
+        width = yolo_boxes[:, 2]
+        height = yolo_boxes[:, 3]
+        
+        sel_dets = scores
+        sel_height = height.clone()
+        sel_width = width.clone()
+        sel_aaa = (sel_width/self.img_width) * (sel_height/self.img_height)
+        
+        loss1_targets = torch.ones_like(sel_dets)
+        loss1 = 10*(F.mse_loss(sel_dets, loss1_targets, reduction='sum'))
+        
+        loss2 = 40*torch.norm(bx, p=2)
+        
+        loss3_targets = torch.ones_like(scores) # lifang535 remove
+        loss3 = 1.0*(F.mse_loss(scores, loss3_targets, reduction='sum'))
+        
+        loss4 = 100*torch.sum(sel_aaa) # lifang535: 相较于 stra_attack，这里的 loss4 是对所有的 box 的面积求和
+        
+        CONSTANTS.MAX_COUNT = 100
+        good = (count / (self.clean_count+1e-4)) >= 3.0 or count >=60
+        G = math.sin(min((epoch_id/100.)*math.pi/2, math.pi/2))
+        H = G
+        factor_l2 = G
+        factor_l3 = 3 - G - H
+        factor_l4 = H
+        total_loss = factor_l2 * loss2 + factor_l3 * loss3 + factor_l4 * loss4
+        
+        total_loss.requires_grad_(True)
+        
+        adam_opt.zero_grad()
+        total_loss.backward(retain_graph=True)
+        bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
+        bx.data = -1.5 * bx.grad+ bx.data
+        count = (scores > 0.25).sum()
+        tqdm.write(f"factor 2: {factor_l2:.4f} factor 3: {factor_l3:.4f} factor 4: {factor_l4:.4f} ")
+
+        tqdm.write(f"loss: {total_loss:.4f} loss_1: {loss1:.4f} loss_2: {loss2:.4f} loss_3: {loss3:.4f} loss_4: {loss4:.4f} good: {good}")
+        tqdm.write("")
+
+        return bx, count   
 
 class EarlyStopping:
     def __init__(self, patience=5, min_delta=0.001):

@@ -7,6 +7,41 @@ import json
 import pdb
 import CONSTANTS
 
+def set_target_class(target, num_queries=100):
+    # use case:
+    # util.set_target_class(1, None)
+    if isinstance(target, int):
+        pass
+    elif isinstance(target, str):
+        target = CONSTANTS.DETR_DICT_LABEL2ID[target]
+    else:
+        raise TypeError("unexpected type of input")
+    target_tensor = torch.zeros(1, num_queries, 92)
+    target_tensor[:, :, target] = 1.0
+    return target_tensor
+
+def xxyy2xywh(boxes, no_grad=False):
+    if no_grad:
+        boxes.require_grad_(False)
+    detr_boxes = boxes.clone()
+    x_center = (detr_boxes[:, 0] + detr_boxes[:, 2]) / 2
+    y_center = (detr_boxes[:, 1] + detr_boxes[:, 3]) / 2
+
+    # Calculate width and height
+    w = detr_boxes[:, 2] - detr_boxes[:, 0]
+    h = detr_boxes[:, 3] - detr_boxes[:, 1]
+
+    # Stack the results into a YOLO-style tensor
+    yolo_boxes = torch.stack([x_center, y_center, w, h], dim=1)
+    return yolo_boxes
+
+def scale_boxes(detr_boxes, img_height, img_width):
+    normed_detr_boxes = detr_boxes.clone()
+    normed_detr_boxes[:, [0, 2]] /= int(img_width)
+    normed_detr_boxes[:, [1, 3]] /= int(img_height)  
+    return normed_detr_boxes
+
+
 def print_function_params(func):
     # 获取函数的签名
     signature = inspect.signature(func)
@@ -77,8 +112,11 @@ def parse_prediction(results):
   return scores, labels, boxes
 
 def get_label_name(idx):
-    return CONSTANTS.DETR_CLASSES[idx]
-
+    with torch.no_grad():
+        if len(idx) != 1:  
+            return [CONSTANTS.DETR_CLASSES[i.item()] for i in idx]
+        else:  
+            return CONSTANTS.DETR_CLASSES[idx] # util.get_label_name(labels)
 def compute_iou(box1, box2):
     x1 = max(box1[0], box2[0])
     y1 = max(box1[1], box2[1])

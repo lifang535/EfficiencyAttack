@@ -125,14 +125,13 @@ def xywh2xyxy(x):
     return y
 
 def run_attack(outputs,outputs_2,bx, strategy, max_tracker_num, adam_opt):
-    outputs = outputs[0][0]
     # outputs_2 = outputs_2[0][0]
 
     per_num_b = (25*45)/max_tracker_num
     per_num_m = (50*90)/max_tracker_num
     per_num_s = (100*180)/max_tracker_num
 
-    scores = outputs[:,5] * outputs[:,4]
+    scores = outputs["scores"]
     sel_scores_b = scores[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
     sel_scores_m = scores[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
     sel_scores_s = scores[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
@@ -309,10 +308,16 @@ class StraAttack:
             if half:
                 input_imgs = input_imgs.half()
                 input_imgs_2 = input_imgs_2.half()
-            # outputs = model(input_imgs)[0] # lifang535 remove
-            # outputs_2 = model(input_imgs_2)[0] # lifang535 remove
-            outputs = model(added_imgs) # lifang535 add
-            # outputs_2 = model(added_imgs_2) # lifang535 add
+            outputs = model(added_imgs)[0][0]
+            
+            
+            # pdb.set_trace()
+            result = model(added_imgs) 
+            target_size = [imgs.shape[2:] for _ in range(1)]
+            outputs = self.image_processor.post_process_object_detection(result, 
+                                                                         threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                         target_sizes = target_size)[0]
+
             bx, count = run_attack(outputs, None, bx, strategy[self.cur_iter], max_tracker_num, adam_opt)
             
             max_count = max(count, max_count)
