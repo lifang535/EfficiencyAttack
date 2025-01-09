@@ -696,7 +696,7 @@ from transformers import DetrConfig, DetrForObjectDetection, DetrImageProcessor
 from transformers import AutoImageProcessor
 import pdb
 import util
-import old_overload
+# import old_overload
 random.seed(42)
 if __name__ == "__main__":
     # image_name = "000001.png"
