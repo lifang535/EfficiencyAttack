@@ -37,8 +37,8 @@ import torch.nn as nn
 import torchvision
 
 
-from models.common import DetectMultiBackend
-from utils.general import Profile, non_max_suppression
+# from models.common import DetectMultiBackend
+# from utils.general import Profile, non_max_suppression
 
 from PIL import Image
 import logging
@@ -462,73 +462,73 @@ class StraAttack:
             mean_l1, mean_l2 = self.evaluate(image, image_name, image_2, image_name_2)
             
 
-def infer(image_path):
-    image = cv2.imread(image_path)
-    # print(f"image.shape = {image.shape}") # (608, 1088, 3)
-    # print(f"image = {image}")
+# def infer(image_path):
+#     image = cv2.imread(image_path)
+#     # print(f"image.shape = {image.shape}") # (608, 1088, 3)
+#     # print(f"image = {image}")
 
-    image = image.transpose((2, 0, 1))[::-1]
-    image = np.ascontiguousarray(image)
-    image = torch.from_numpy(image).to(device).float()
-    image /= 255.0
+#     image = image.transpose((2, 0, 1))[::-1]
+#     image = np.ascontiguousarray(image)
+#     image = torch.from_numpy(image).to(device).float()
+#     image /= 255.0
     
-    if len(image.shape) == 3:
-        image = image[None]
+#     if len(image.shape) == 3:
+#         image = image[None]
     
-    # tensor_type = torch.cuda.FloatTensor
-    # image_tensor = image.type(tensor_type)
-    # image_tensor = image.to(device)
+#     # tensor_type = torch.cuda.FloatTensor
+#     # image_tensor = image.type(tensor_type)
+#     # image_tensor = image.to(device)
     
-    image_tensor = image
+#     image_tensor = image
     
-    # print(f"image_tensor = {image_tensor}")
+#     # print(f"image_tensor = {image_tensor}")
     
-    outputs = model(image_tensor)
+#     outputs = model(image_tensor)
     
-    # print(f"outputs = {outputs}")
+#     # print(f"outputs = {outputs}")
     
-    outputs = outputs[0].unsqueeze(0)
+#     outputs = outputs[0].unsqueeze(0)
     
-    # scores = outputs[..., index] * outputs[..., 4]
-    # scores = scores[scores > 0.25]
-    # print(f"len(scores) = {len(scores)}")
-    # objects_num_before_nms = len(scores) # 实际上是 {attack_object} number before NMS
+#     # scores = outputs[..., index] * outputs[..., 4]
+#     # scores = scores[scores > 0.25]
+#     # print(f"len(scores) = {len(scores)}")
+#     # objects_num_before_nms = len(scores) # 实际上是 {attack_object} number before NMS
     
-    conf_thres = 0.25 # 0.25  # confidence threshold
-    iou_thres = 0.45  # 0.45  # NMS IOU threshold
-    max_det = 10000    # maximum detections per image
+#     conf_thres = 0.25 # 0.25  # confidence threshold
+#     iou_thres = 0.45  # 0.45  # NMS IOU threshold
+#     max_det = 10000    # maximum detections per image
     
-    xc = outputs[..., 4] > 0
-    x = outputs[0][xc[0]]
-    x[:, 5:] *= x[:, 4:5]
-    max_scores = x[:, 5:].max(dim=-1).values
-    objects_num_before_nms = len(max_scores[max_scores > 0.25]) # 这个是对的，用最大的 class confidence 筛选
+#     xc = outputs[..., 4] > 0
+#     x = outputs[0][xc[0]]
+#     x[:, 5:] *= x[:, 4:5]
+#     max_scores = x[:, 5:].max(dim=-1).values
+#     objects_num_before_nms = len(max_scores[max_scores > 0.25]) # 这个是对的，用最大的 class confidence 筛选
     
-    objects_num_after_nms = 0
-    person_num_after_nms = 0
-    car_num_after_nms = 0
+#     objects_num_after_nms = 0
+#     person_num_after_nms = 0
+#     car_num_after_nms = 0
     
-    outputs = non_max_suppression(outputs, conf_thres, iou_thres, max_det=max_det)
+#     outputs = non_max_suppression(outputs, conf_thres, iou_thres, max_det=max_det)
     
-    for i, det in enumerate(outputs): # detections per image
-        if len(det):
-            for *xyxy, conf, cls in reversed(det):
-                c = int(cls)
-                label = f"{names[c]}"
-                confidence = float(conf)
-                confidence_str = f"{confidence}" # f"{confidence:.2f}"
-                box = [round(float(i), 2) for i in xyxy]
-                # print(f"Detected {label} with confidence {confidence_str} at location {box}")
-                if label == "person":
-                    person_num_after_nms += 1
-                elif label == "car":
-                    car_num_after_nms += 1
-            objects_num_after_nms = len(det)
-        # print(f"There are {len(det)} objects detected in this image.")
+#     for i, det in enumerate(outputs): # detections per image
+#         if len(det):
+#             for *xyxy, conf, cls in reversed(det):
+#                 c = int(cls)
+#                 label = f"{names[c]}"
+#                 confidence = float(conf)
+#                 confidence_str = f"{confidence}" # f"{confidence:.2f}"
+#                 box = [round(float(i), 2) for i in xyxy]
+#                 # print(f"Detected {label} with confidence {confidence_str} at location {box}")
+#                 if label == "person":
+#                     person_num_after_nms += 1
+#                 elif label == "car":
+#                     car_num_after_nms += 1
+#             objects_num_after_nms = len(det)
+#         # print(f"There are {len(det)} objects detected in this image.")
     
-    # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
-    print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
-    return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
+#     # objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
+#     print(f"objects_num_before_nms = {objects_num_before_nms}, objects_num_after_nms = {objects_num_after_nms}, person_num_after_nms = {person_num_after_nms}, car_num_after_nms = {car_num_after_nms}")
+#     return objects_num_before_nms, objects_num_after_nms, person_num_after_nms, car_num_after_nms
 
 
 def dir_process(dir_path):
