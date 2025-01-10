@@ -20,7 +20,7 @@ def set_target_class(target, num_queries=100):
     target_tensor[:, :, target] = 1.0
     return target_tensor
 
-def xxyy2xywh(boxes, no_grad=False):
+def xyxy2xywh(boxes, no_grad=False):
     if no_grad:
         boxes.require_grad_(False)
     detr_boxes = boxes.clone()
@@ -224,3 +224,18 @@ def move_to_cpu(data):
         return [move_to_cpu(item) for item in data]
     else:
         return data
+    
+    
+    
+    
+def crop_img(image_tensor, box):
+    x_min, y_min, x_max, y_max = box.int()
+
+    x_min = max(0, x_min.item())
+    y_min = max(0, y_min.item())
+    x_max = min(image_tensor.shape[2], x_max.item())
+    y_max = min(image_tensor.shape[1], y_max.item())
+
+    cropped_tensor = image_tensor[:, y_min:y_max, x_min:x_max]  # Shape: (3, cropped_height, cropped_width)
+
+    return cropped_tensor

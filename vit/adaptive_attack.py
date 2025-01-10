@@ -41,7 +41,9 @@ from PIL import Image
 from torchvision import transforms
 sys.path.append("../captioning")
 from ms_captioning import MSCaptioning
-from detr import target_obj_idx, if_pipeline
+# from detr import target_cls_idx as TARGET_CLS_IDX
+# from detr import if_pipeline as IF_PIPELINE
+from detr import args
 import logging
 
 
@@ -290,7 +292,7 @@ class SingleAttack:
         self.nmsthre = 0.45
         self.num_classes = None
         self.args = None
-        self.pipeline = if_pipeline
+        # self.pipeline = IF_PIPELINE
         self.epochs = epochs
         self.device = device  
         self.results_dict = results_dict    
@@ -401,15 +403,20 @@ class SingleAttack:
                                                                          target_sizes = target_size)[0]
 
             scores = outputs["scores"]
+            labels = outputs["labels"]
             count = (scores >= 0.25).sum() # original: > 0.3
             from overload_attack import generate_mask
-            from overload_attack import _run_attack
             if iter == 0:
                 mask = generate_mask(outputs,added_imgs.shape[3],added_imgs.shape[2]).to(self.device)
 
             bx, count = self.run_attack(outputs, result, bx, strategy, max_tracker_num, adam_opt, epoch_id, count, mask, self.device)
             # bx, count = _run_attack(None, outputs, bx, strategy, max_tracker_num, mask)
             max_count = max(count, max_count)
+            if count > max_count:
+                max_count = count
+                best_img = added_imgs.clone()  # Store the current image
+                best_result = result.clone()  # Store the current result
+            
             target_size = [imgs.shape[2:] for _ in range(1)]
 
             if type(count) != type(1) :
@@ -417,26 +424,32 @@ class SingleAttack:
             if type(max_count) != type(1):
                 max_count = max_count.item()
             tqdm.write(f"image_name: {image_name} iter: {iter} count: {count} clean_count: {self.clean_count}")
+            tqdm.write(f"label: {labels}")
         
-        if self.pipeline:
-            with torch.no_grad():
-                start_time = time.perf_counter()
-                # _result = self.model(added_imgs) 
-                # pdb.set_trace()
-                # _target_size = [imgs.shape[2:] for _ in range(1)]
-                # self.image_processor.post_process_object_detection(_result, 
-                #                                                     threshold = CONSTANTS.POST_PROCESS_THRESH, 
-                #                                                     target_sizes = _target_size)[0]
+        if args.pipeline_name == "caption":
 
-                ms_captioning = MSCaptioning(device=self.device)
-                ms_captioning.load_processor_checkpoint()
-                ms_captioning.load_model()
-                caption = ms_captioning.inference(added_imgs)
-                # Stop measuring time
-                end_time = time.perf_counter()
+
+            start_time = time.perf_counter()
+            with torch.no_grad():
+                downstream_scores, downstream_labels, downstream_boxes = util.parse_prediction(outputs)
+                for box in downstream_boxes:
+                    cropped_img = util.crop_img(image_tensor=added_imgs, box=box)
+                    # pdb.set_trace()
+                    # _result = self.model(added_imgs) 
+                    # _target_size = [imgs.shape[2:] for _ in range(1)]
+                    # self.image_processor.post_process_object_detection(_result, 
+                    #                                                     threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                    #                                                     target_sizes = _target_size)[0]
+
+                    ms_captioning = MSCaptioning(device=self.device)
+                    ms_captioning.load_processor_checkpoint()
+                    ms_captioning.load_model()
+                    caption = ms_captioning.inference(added_imgs)
+                    # Stop measuring time
+                    end_time = time.perf_counter()
                 
                 # Calculate elapsed time
-                elapsed_time = (end_time - start_time) * 1000
+            elapsed_time = (end_time - start_time) * 1000
         else:
             elapsed_time = -1
             
@@ -579,10 +592,10 @@ class SingleAttack:
             
             mean_l1, mean_l2 = self.evaluate(image, image_name)
 
-    def run_attack(self, output, results, bx, strategy, max_tracker_num, adam_opt, epoch_id, count, mask, device):
+    def run_attack(self, output, result, bx, strategy, max_tracker_num, adam_opt, epoch_id, count, mask, device):
 
         # Apply softmax to compute probabilities
-        logits = results.logits[0]
+        logits = result.logits[0]
         # probabilities = F.softmax(logits, dim=-1)  
         probabilities = F.sigmoid(logits) 
         max_probs, predicted_classes = probabilities.max(dim=-1)  # Shape: [100]
@@ -594,10 +607,9 @@ class SingleAttack:
         per_num_s = (100*180)/max_tracker_num
 
         scores, labels, boxes = util.parse_prediction(output)
-        # boxes = util.scale_boxes(boxes, self.img_height, self.img_width)
-        yolo_boxes = util.xxyy2xywh(boxes)
-        width = yolo_boxes[:, 2]
-        height = yolo_boxes[:, 3]
+        
+        width = boxes[:, 2] - boxes[:, 0]
+        height = boxes[: ,3]- boxes[:, 1]
         
         sel_dets = scores
         sel_height = height.clone()
@@ -614,6 +626,11 @@ class SingleAttack:
         
         loss4 = 100*torch.sum(sel_aaa) # lifang535: 相较于 stra_attack，这里的 loss4 是对所有的 box 的面积求和
         
+        target_class_tensor = util.set_target_class(args.target_cls_idx).to(self.device)
+        loss5 = 0.1 * F.mse_loss(probabilities, target_class_tensor, reduction='sum')
+        
+        
+        # total_loss =  loss2 + loss3 + loss4 + loss5 + loss1
         CONSTANTS.MAX_COUNT = 100
         good = (count / (self.clean_count+1e-4)) >= 3.0 or count >=60
         G = math.sin(min((epoch_id/100.)*math.pi/2, math.pi/2))
@@ -621,7 +638,7 @@ class SingleAttack:
         factor_l2 = G
         factor_l3 = 3 - G - H
         factor_l4 = H
-        total_loss = factor_l2 * loss2 + factor_l3 * loss3 + factor_l4 * loss4
+        total_loss = factor_l2 * loss2 + factor_l3 * loss3 + factor_l4 * loss4 + loss5
         
         total_loss.requires_grad_(True)
         
@@ -629,11 +646,13 @@ class SingleAttack:
         total_loss.backward(retain_graph=True)
         bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
         bx.data = -1.5 * bx.grad+ bx.data
-        count = (scores > 0.25).sum()
+        # count = (scores > CONSTANTS.POST_PROCESS_THRESH).sum() 
+        # default set as 0.25 = CONSTANTS.POST_PROCESS_THRESH
         tqdm.write(f"factor 2: {factor_l2:.4f} factor 3: {factor_l3:.4f} factor 4: {factor_l4:.4f} ")
 
         tqdm.write(f"loss: {total_loss:.4f} loss_1: {loss1:.4f} loss_2: {loss2:.4f} loss_3: {loss3:.4f} loss_4: {loss4:.4f} good: {good}")
         tqdm.write("")
+        # pdb.set_trace()
 
         return bx, count   
 

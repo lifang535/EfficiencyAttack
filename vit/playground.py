@@ -97,6 +97,10 @@ if __name__ == "__main__":
     
     # find bottle neck (label) is also a part of our approach
     
+    # TODO: EXPERIMENT
+    # implement more pipeline
+    # ablation study
+    
     # TODO:
     # world model for robotic arm
     # env info 
