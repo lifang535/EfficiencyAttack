@@ -43,6 +43,10 @@ import torchvision
 from PIL import Image
 import logging
 
+sys.path.append("../captioning")
+from ms_captioning import MSCaptioning
+from detr import args
+
 def create_logger(module, filename, level):
     # Create a formatter for the logger, setting the format of the log with time, level, and message
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')

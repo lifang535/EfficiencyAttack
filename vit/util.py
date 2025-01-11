@@ -6,7 +6,30 @@ import inspect
 import json
 import pdb
 import CONSTANTS
+import random
+import numpy as np
+import torch
+import os
 
+def set_all_seeds(seed=42):
+    # Python's built-in random
+    random.seed(seed)
+    
+    # NumPy
+    np.random.seed(seed)
+    
+    # PyTorch
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # for multi-GPU
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+        
+    # Environment variables for additional libraries
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    
+
+# Usage
 def set_target_class(target, num_queries=100):
     # use case:
     # util.set_target_class(1, None)
@@ -229,13 +252,7 @@ def move_to_cpu(data):
     
     
 def crop_img(image_tensor, box):
-    x_min, y_min, x_max, y_max = box.int()
-
-    x_min = max(0, x_min.item())
-    y_min = max(0, y_min.item())
-    x_max = min(image_tensor.shape[2], x_max.item())
-    y_max = min(image_tensor.shape[1], y_max.item())
-
-    cropped_tensor = image_tensor[:, y_min:y_max, x_min:x_max]  # Shape: (3, cropped_height, cropped_width)
+    x_min, y_min, x_max, y_max = box
+    cropped_tensor = image_tensor[:, :, y_min:y_max, x_min:x_max]  # Shape: (3, cropped_height, cropped_width)
 
     return cropped_tensor

@@ -41,6 +41,10 @@ from torchvision.utils import save_image
 from PIL import Image
 import logging
 
+sys.path.append("../captioning")
+from ms_captioning import MSCaptioning
+from detr import args
+
 def create_logger(module, filename, level):
     # os.makedirs(logger_path, exist_ok=True)
 
@@ -347,7 +351,33 @@ class OverloadAttack:
             bx, bbox_count = _run_attack(None, outputs, bx, strategy, max_tracker_num, mask)
             max_count = max(bbox_count, max_count)
 
-        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(clean_count), "corrupted_bbox_num": max_count}
+        
+        if args.pipeline_name == "caption":
+
+            start_time = time.perf_counter()
+            with torch.no_grad():
+                downstream_scores, downstream_labels, downstream_boxes = util.parse_prediction(outputs)
+                cropped_list = []
+                # Crop images based on bounding boxes
+                for i, box in enumerate(downstream_boxes):
+                    if downstream_labels[i] == args.target_cls_idx:  # Only consider boxes with label == 1
+                        cropped_img = util.crop_img(image_tensor=added_imgs, box=box.int())
+                        cropped_list.append((cropped_img, i))  # Store cropped image with its index
+
+                # Perform ms_captioning only for label == 1
+                for cropped_img, idx in tqdm(cropped_list, desc="Processing cropped images"):
+                    ms_captioning = MSCaptioning(device=self.device)
+                    ms_captioning.load_processor_checkpoint()
+                    ms_captioning.load_model()
+                    caption = ms_captioning.inference(cropped_img)
+                end_time = time.perf_counter()
+                
+            elapsed_time = (end_time - start_time) * 1000
+        else:
+            elapsed_time = -1
+            
+        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(self.clean_count), "corrupted_bbox_num": len(cropped_list), "inference time": round(elapsed_time, 2)}
+
         # pdb.set_trace()
         
         if strategy == max_tracker_num-1:

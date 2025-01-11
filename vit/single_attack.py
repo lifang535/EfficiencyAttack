@@ -30,6 +30,9 @@ import torchvision
 from pathlib import Path
 
 import sys
+sys.path.append("../captioning")
+from ms_captioning import MSCaptioning
+from detr import args
 
 def xyxy2xywh(x):
     """

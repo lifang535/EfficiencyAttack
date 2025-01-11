@@ -37,12 +37,10 @@ if str(YOLOV5_FILE) not in sys.path:
 # from models.common import DetectMultiBackend
 # from utils.general import Profile, non_max_suppression
 
-from PIL import Image
 from torchvision import transforms
+from PIL import Image
 sys.path.append("../captioning")
 from ms_captioning import MSCaptioning
-# from detr import target_cls_idx as TARGET_CLS_IDX
-# from detr import if_pipeline as IF_PIPELINE
 from detr import args
 import logging
 
@@ -377,7 +375,7 @@ class SingleAttack:
         imgs = imgs.type(tensor_type)
         imgs = imgs.to(self.device)
         #(1,23625,6)
-        max_count = -1.0
+        max_count = -1
         for iter in tqdm(range(self.epochs)):
             epoch_id = iter # lifang535: for new attack
             
@@ -404,18 +402,19 @@ class SingleAttack:
 
             scores = outputs["scores"]
             labels = outputs["labels"]
-            count = (scores >= 0.25).sum() # original: > 0.3
             from overload_attack import generate_mask
             if iter == 0:
                 mask = generate_mask(outputs,added_imgs.shape[3],added_imgs.shape[2]).to(self.device)
 
+            count = (labels == 1.0).sum().item()
             bx, count = self.run_attack(outputs, result, bx, strategy, max_tracker_num, adam_opt, epoch_id, count, mask, self.device)
+            
             # bx, count = _run_attack(None, outputs, bx, strategy, max_tracker_num, mask)
-            max_count = max(count, max_count)
             if count > max_count:
-                max_count = count
+                max_count = max(count, max_count)
+                # max_count = count
                 best_img = added_imgs.clone()  # Store the current image
-                best_result = result.clone()  # Store the current result
+                best_outputs = {key: value.clone() for key, value in outputs.items()} # Store the current result
             
             target_size = [imgs.shape[2:] for _ in range(1)]
 
@@ -428,32 +427,29 @@ class SingleAttack:
         
         if args.pipeline_name == "caption":
 
-
             start_time = time.perf_counter()
             with torch.no_grad():
-                downstream_scores, downstream_labels, downstream_boxes = util.parse_prediction(outputs)
-                for box in downstream_boxes:
-                    cropped_img = util.crop_img(image_tensor=added_imgs, box=box)
-                    # pdb.set_trace()
-                    # _result = self.model(added_imgs) 
-                    # _target_size = [imgs.shape[2:] for _ in range(1)]
-                    # self.image_processor.post_process_object_detection(_result, 
-                    #                                                     threshold = CONSTANTS.POST_PROCESS_THRESH, 
-                    #                                                     target_sizes = _target_size)[0]
+                downstream_scores, downstream_labels, downstream_boxes = util.parse_prediction(best_outputs)
+                cropped_list = []
+                # Crop images based on bounding boxes
+                for i, box in enumerate(downstream_boxes):
+                    if downstream_labels[i] == args.target_cls_idx:  # Only consider boxes with label == 1
+                        cropped_img = util.crop_img(image_tensor=best_img, box=box.int())
+                        cropped_list.append((cropped_img, i))  # Store cropped image with its index
 
+                # Perform ms_captioning only for label == 1
+                for cropped_img, idx in tqdm(cropped_list, desc="Processing cropped images"):
                     ms_captioning = MSCaptioning(device=self.device)
                     ms_captioning.load_processor_checkpoint()
                     ms_captioning.load_model()
-                    caption = ms_captioning.inference(added_imgs)
-                    # Stop measuring time
-                    end_time = time.perf_counter()
+                    caption = ms_captioning.inference(cropped_img)
+                end_time = time.perf_counter()
                 
-                # Calculate elapsed time
             elapsed_time = (end_time - start_time) * 1000
         else:
             elapsed_time = -1
             
-        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(self.clean_count), "corrupted_bbox_num": int(max_count), "inference time": round(elapsed_time, 2)}
+        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(self.clean_count), "corrupted_bbox_num": len(cropped_list), "inference time": round(elapsed_time, 2)}
 
         if strategy == max_tracker_num-1:
             strategy = 0

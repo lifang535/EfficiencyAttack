@@ -16,15 +16,20 @@ import pdb
 from tqdm import tqdm
 import argparse
 import random
-import overload_attack
-import adaptive_attack
+# import overload_attack
+# import adaptive_attack
 from datetime import datetime
-import stra_attack
+# import stra_attack
 import time
+
+util.set_all_seeds(42)
+
 parser = argparse.ArgumentParser(description="DETR hyperparam setup")
-parser.add_argument("--e", type=int, default=-999)
-parser.add_argument("--t", type=str, default="infer")
-parser.add_argument("--p", type=str, default=None)
+parser.add_argument("--epoch_num", type=int, default=100)
+parser.add_argument("--val_size", type=int, choices=range(1, 4952), default=4952, help="An integer in the range 1-4952 (inclusive)")
+parser.add_argument("--algo_name", type=str, default="infer")
+parser.add_argument("--pipeline_name", type=str, default=None)
+parser.add_argument("--target_cls_idx", type=int, default=1)
 args = parser.parse_args()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -43,11 +48,10 @@ if __name__ == "__main__":
   # pdb.set_trace()
 
   # coco_data = coco_data.select(range(CONSTANTS.VAL_SUBSET_SIZE))
-  random.seed(42)
-  random_indices = random.sample(range(len(coco_data)), CONSTANTS.VAL_SUBSET_SIZE)
+  random_indices = random.sample(range(len(coco_data)), args.val_size)
   coco_data = coco_data.select(random_indices)
     
-  if args.t == "infer":
+  if args.algo_name == "infer":
 
     for index, example in tqdm(enumerate(coco_data), total=coco_data.__len__(), desc="Processing COCO data"):
       
@@ -84,36 +88,36 @@ if __name__ == "__main__":
       results_dict[f"image_{image_id}"] = {"inference time": round(elapsed_time, 2)}
       
       
-  if args.t == "overload":
-    
+  if args.algo_name == "overload":
+    import overload_attack
     oa = overload_attack.OverloadAttack(image_list=coco_data,
                                         image_name_list=None,
                                         img_size=None,
-                                        epochs=args.e,
+                                        epochs=args.epoch_num,
                                         device=device)
     oa.run()
     results_dict = oa.results_dict
     # pdb.set_trace()
-  if args.t == "ada":
+  if args.algo_name == "ada":
+    import adaptive_attack
     ada = adaptive_attack.SingleAttack(image_list=coco_data,
                                         image_name_list=None,
                                         img_size=None,
-                                        epochs=args.e,
-                                        pipeline=args.p,
+                                        epochs=args.epoch_num,
                                         device=device)
     ada.run()
     results_dict = ada.results_dict
-  if args.t == "slow":
+  if args.algo_name == "slow":
+    import stra_attack
     # raise ValueError("not implemented")
     slow = stra_attack.StraAttack(image_list=coco_data,
                                   image_name_list=None,
                                   img_size=None,
-                                  epochs=args.e,
+                                  epochs=args.epoch_num,
                                   device=device)
     slow.run()
     results_dict = slow.results_dict
-    pass
-  # if args.t == "infer":
+  # if args.algo_name == "infer":
   #   output_path = "../prediction/rt-detr_eval_result.json"
   #   with open(output_path, "w") as f:
   #     json.dump(results_dict, f, indent=4)
@@ -121,9 +125,9 @@ if __name__ == "__main__":
   #   print(f"Evaluation results saved to {output_path}")
     
   date_str = datetime.now().strftime("%Y%m%d_%H%M")
-  output_path = f"../rt-detr-prediction/{date_str}_{args.e}_{args.t}.json"
+  output_path = f"../rt-detr-prediction/{args.epoch_name}_{args.algo_name}_{args.pipeline_name}_{args.target_cls_idx}_{args.val_size}.json"
   with open(output_path, "w") as f:
     json.dump(results_dict, f, indent=4)
 
-  print(f"{args.t} results saved to {output_path}")
+  print(f"{args.algo_name} results saved to {output_path}")
     

@@ -23,6 +23,9 @@ from pathlib import Path
 
 import sys
 
+sys.path.append("../captioning")
+from ms_captioning import MSCaptioning
+from detr import args
 
 YOLOV5_FILE = Path(f"../../yolov5").resolve()
 if str(YOLOV5_FILE) not in sys.path:
