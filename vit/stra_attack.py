@@ -324,15 +324,49 @@ class StraAttack:
 
             bx, count = run_attack(outputs, None, bx, strategy[self.cur_iter], max_tracker_num, adam_opt)
             
-            max_count = max(count, max_count)
-
             if type(count) != type(1) :
                 count = count.item()
             if type(max_count) != type(1):
                 max_count = max_count.item()
                 
-            tqdm.write(f"image_name: {image_name} iter: {iter} count: {count} clean_count: {clean_count}")
-        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(clean_count), "corrupted_bbox_num": int(max_count)}
+            scores, labels, boxes = util.parse_prediction(outputs)
+            count = (labels == args.target_cls_idx).sum().item()
+            if count > max_count:
+                max_count = max(count, max_count)
+                # max_count = count
+                best_img = added_imgs.clone()  # Store the current image
+                best_outputs = {key: value.clone() for key, value in outputs.items()} # Store the current result
+            tqdm.write(f"labels: {labels} count: {count}")
+
+        
+        if args.pipeline_name == "caption":
+
+            start_time = time.perf_counter()
+            with torch.no_grad():
+                downstream_scores, downstream_labels, downstream_boxes = util.parse_prediction(best_outputs)
+                cropped_list = []
+                # Crop images based on bounding boxes
+                for i, box in enumerate(downstream_boxes):
+                    if downstream_labels[i] == args.target_cls_idx:  # Only consider boxes with label == target
+                        cropped_img = util.crop_img(image_tensor=best_img, box=box.int())
+                        cropped_list.append((cropped_img, i))  # Store cropped image with its index
+
+                # Perform ms_captioning only for label == 1
+                for cropped_img, idx in tqdm(cropped_list, desc="Processing cropped images"):
+                    ms_captioning = MSCaptioning(device=self.device)
+                    ms_captioning.load_processor_checkpoint()
+                    ms_captioning.load_model()
+                    caption = ms_captioning.inference(cropped_img)
+                    # pdb.set_trace()
+                end_time = time.perf_counter()
+                
+            elapsed_time = (end_time - start_time) * 1000
+        else:
+            elapsed_time = -1
+            
+        self.results_dict[f"image_{image_name}"] = {"corrupted_bbox_num": max_count, "inference time": round(elapsed_time, 2)}
+
+
 
 
         # if strategy == max_tracker_num-1:

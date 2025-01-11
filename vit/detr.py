@@ -30,7 +30,7 @@ parser.add_argument("--pipeline_name", type=str, default=None)
 parser.add_argument("--target_cls_idx", type=int, default=1)
 args = parser.parse_args()
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("running on : ", device)
 
 image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
@@ -144,7 +144,7 @@ if __name__ == "__main__":
 
 
   date_str = datetime.now().strftime("%Y%m%d_%H%M")
-  output_path = f"../detr-prediction/{args.epoch_name}_{args.algo_name}_{args.pipeline_name}_{args.target_cls_idx}_{args.val_size}.json"
+  output_path = f"../detr-prediction/{args.epoch_num}_{args.algo_name}_{args.pipeline_name}_{args.target_cls_idx}_{args.val_size}.json"
   with open(output_path, "w") as f:
     json.dump(results_dict, f, indent=4)
 

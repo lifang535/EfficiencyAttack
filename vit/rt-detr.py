@@ -125,7 +125,7 @@ if __name__ == "__main__":
   #   print(f"Evaluation results saved to {output_path}")
     
   date_str = datetime.now().strftime("%Y%m%d_%H%M")
-  output_path = f"../rt-detr-prediction/{args.epoch_name}_{args.algo_name}_{args.pipeline_name}_{args.target_cls_idx}_{args.val_size}.json"
+  output_path = f"../rt-detr-prediction/{args.epoch_num}_{args.algo_name}_{args.pipeline_name}_{args.target_cls_idx}_{args.val_size}.json"
   with open(output_path, "w") as f:
     json.dump(results_dict, f, indent=4)
 

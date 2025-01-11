@@ -406,7 +406,7 @@ class SingleAttack:
             if iter == 0:
                 mask = generate_mask(outputs,added_imgs.shape[3],added_imgs.shape[2]).to(self.device)
 
-            count = (labels == 1.0).sum().item()
+            count = (labels == args.target_cls_idx).sum().item()
             bx, count = self.run_attack(outputs, result, bx, strategy, max_tracker_num, adam_opt, epoch_id, count, mask, self.device)
             
             # bx, count = _run_attack(None, outputs, bx, strategy, max_tracker_num, mask)
@@ -449,7 +449,7 @@ class SingleAttack:
         else:
             elapsed_time = -1
             
-        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(self.clean_count), "corrupted_bbox_num": len(cropped_list), "inference time": round(elapsed_time, 2)}
+        self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(self.clean_count), "corrupted_bbox_num": max_count, "inference time": round(elapsed_time, 2)}
 
         if strategy == max_tracker_num-1:
             strategy = 0

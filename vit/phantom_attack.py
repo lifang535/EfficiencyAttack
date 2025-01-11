@@ -292,7 +292,7 @@ def max_objects(output_patch, conf_thres=0.25, target_class=0):
     under_thr_target_conf = all_target_conf[conf < conf_thres]
 
     conf_avg = len(conf.view(-1)[conf.view(-1) > conf_thres]) / len(output_patch)
-    print(f"pass to NMS: {conf_avg}")
+    # print(f"pass to NMS: {conf_avg}")
 
     zeros = torch.zeros(under_thr_target_conf.size()).to(output_patch.device)
     zeros.requires_grad = True
@@ -556,6 +556,7 @@ class PhantomAttack:
         adv_patch = bx
         
         imgs = util.denormalize(imgs)
+        max_count = -1
         for iter in tqdm(range(self.epochs)):
 
             frame_id = 0
@@ -588,7 +589,7 @@ class PhantomAttack:
             total_l2 += l2_norm
             mean_l1 = total_l1/frame_id
             mean_l2 = total_l2/frame_id
-            print(mean_l1.item(),mean_l2.item())
+            # print(mean_l1.item(),mean_l2.item())
             
             result = self.model(applied_patch) 
             
@@ -597,10 +598,44 @@ class PhantomAttack:
                                                                     threshold = CONSTANTS.POST_PROCESS_THRESH, 
                                                                     target_sizes = target_size)[0]
 
-    
-            scores = outputs["scores"]
-            count = (scores >= 0.25).sum() # original: > 0.3
-            print(f"count: {count.item()}\n")
+            scores, labels, boxes = util.parse_prediction(outputs)
+            count = (labels == args.target_cls_idx).sum().item()
+            if count > max_count:
+                max_count = max(count, max_count)
+                # max_count = count
+                best_img = applied_patch.clone()  # Store the current image
+                best_outputs = {key: value.clone() for key, value in outputs.items()} # Store the current result
+            tqdm.write(f"labels: {labels} count: {count}")
+
+        
+        if args.pipeline_name == "caption":
+
+            start_time = time.perf_counter()
+            with torch.no_grad():
+                downstream_scores, downstream_labels, downstream_boxes = util.parse_prediction(best_outputs)
+                cropped_list = []
+                # Crop images based on bounding boxes
+                for i, box in enumerate(downstream_boxes):
+                    if downstream_labels[i] == args.target_cls_idx:  # Only consider boxes with label == target
+                        cropped_img = util.crop_img(image_tensor=best_img, box=box.int())
+                        cropped_list.append((cropped_img, i))  # Store cropped image with its index
+
+                # Perform ms_captioning only for label == 1
+                for cropped_img, idx in tqdm(cropped_list, desc="Processing cropped images"):
+                    ms_captioning = MSCaptioning(device=self.device)
+                    ms_captioning.load_processor_checkpoint()
+                    ms_captioning.load_model()
+                    caption = ms_captioning.inference(cropped_img)
+                    # pdb.set_trace()
+                end_time = time.perf_counter()
+                
+            elapsed_time = (end_time - start_time) * 1000
+        else:
+            elapsed_time = -1
+            
+        self.results_dict[f"image_{image_name}"] = {"corrupted_bbox_num": len(cropped_list), "inference time": round(elapsed_time, 2)}
+
+
         added_blob = torch.clamp(applied_patch*255,0,255).squeeze().permute(1, 2, 0).detach().cpu().numpy()
         added_blob = added_blob[..., ::-1]
         # print(f"added_blob.shape = {added_blob.shape}")
@@ -737,7 +772,7 @@ def dir_process(dir_path):
 def _dir_process(img_list_len=None):
     if not img_list_len:
         img_list_len = CONSTANTS.VAL_SUBSET_SIZE
-    print(f"using img list length: {img_list_len}")    
+    # print(f"using img list length: {img_list_len}")    
     coco_data = load_dataset("detection-datasets/coco", split="val")
     random.seed(42)
     random_indices = random.sample(range(len(coco_data)), img_list_len)
