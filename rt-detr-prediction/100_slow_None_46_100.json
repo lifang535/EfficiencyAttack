@@ -1,0 +1,402 @@
+{
+    "image_108864": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_21167": {
+        "corrupted_bbox_num": 1,
+        "inference time": -1
+    },
+    "image_262587": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_231747": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_212072": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_135673": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_99053": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_522713": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_84362": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_568584": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_404484": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_27696": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_25228": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_90062": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_207306": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_221693": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_482477": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_579321": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_22705": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_539143": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_187362": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_522156": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_402346": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_209753": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_430871": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_567640": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_265816": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_5529": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_154718": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_404922": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_325838": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_265518": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_151820": {
+        "corrupted_bbox_num": 55,
+        "inference time": -1
+    },
+    "image_203639": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_322829": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_99024": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_89296": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_363666": {
+        "corrupted_bbox_num": 1,
+        "inference time": -1
+    },
+    "image_93261": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_344100": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_329080": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_581100": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_251572": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_39477": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_441468": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_513524": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_122962": {
+        "corrupted_bbox_num": 6,
+        "inference time": -1
+    },
+    "image_361586": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_76547": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_529939": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_281687": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_346905": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_555972": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_182611": {
+        "corrupted_bbox_num": 2,
+        "inference time": -1
+    },
+    "image_65736": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_42102": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_216277": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_277020": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_78266": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_221754": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_97994": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_363784": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_265777": {
+        "corrupted_bbox_num": 3,
+        "inference time": -1
+    },
+    "image_435081": {
+        "corrupted_bbox_num": 8,
+        "inference time": -1
+    },
+    "image_349678": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_157418": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_355240": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_341196": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_197388": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_254516": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_67213": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_164883": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_511999": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_231580": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_157928": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_444275": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_363072": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_257370": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_534270": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_208901": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_309495": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_52007": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_217400": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_27932": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_300913": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_383339": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_255664": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_61960": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_199236": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_546556": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_300039": {
+        "corrupted_bbox_num": 25,
+        "inference time": -1
+    },
+    "image_200961": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_476415": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_377497": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_440508": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_138979": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_252219": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_233033": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_539445": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    },
+    "image_516318": {
+        "corrupted_bbox_num": 0,
+        "inference time": -1
+    }
+}
