@@ -633,7 +633,7 @@ class PhantomAttack:
         else:
             elapsed_time = -1
             
-        self.results_dict[f"image_{image_name}"] = {"corrupted_bbox_num": len(cropped_list), "inference time": round(elapsed_time, 2)}
+        self.results_dict[f"image_{image_name}"] = {"corrupted_bbox_num": max_count, "inference time": round(elapsed_time, 2)}
 
 
         added_blob = torch.clamp(applied_patch*255,0,255).squeeze().permute(1, 2, 0).detach().cpu().numpy()

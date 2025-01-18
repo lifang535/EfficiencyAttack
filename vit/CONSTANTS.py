@@ -224,3 +224,30 @@ DETR_DICT_LABEL2ID = {
   }
 VAL_SUBSET_SIZE=100
 MAX_COUNT = 100
+
+BRID_FAMILY_NAME_LATIN = ["Struthionidae","Rheidae","Apterygidae","Casuariidae","Tinamidae","Anhimidae","Anseranatidae","Anatidae","Megapodiidae","Cracidae","Numididae","Odontophoridae","Phasianidae","Podargidae","Steatornithidae","Nyctibiidae","Caprimulgidae","Aegothelidae","Hemiprocnidae","Apodidae","Trochilidae","Musophagidae","Otididae","Cuculidae","Mesitornithidae","Pteroclidae","Columbidae","Heliornithidae","Sarothruridae","Rallidae","Psophiidae","Gruidae","Aramidae","Podicipedidae","Phoenicopteridae","Turnicidae","Burhinidae","Chionidae","Pluvianellidae","Haematopodidae","Ibidorhynchidae","Recurvirostridae","Charadriidae","Pluvianidae","Rostratulidae","Jacanidae","Pedionomidae","Thinocoridae","Scolopacidae","Dromadidae","Glareolidae","Laridae","Stercorariidae","Alcidae","Rhynochetidae","Eurypygidae","Phaethontidae","Gaviidae","Spheniscidae","Oceanitidae","Diomedeidae","Hydrobatidae","Procellariidae","Ciconiidae","Fregatidae","Sulidae","Anhingidae","Phalacrocoracidae","Threskiornithidae","Ardeidae","Scopidae","Balaenicipitidae","Pelecanidae","Opisthocomidae","Cathartidae","Sagittariidae","Pandionidae","Accipitridae","Tytonidae","Strigidae","Coliidae","Leptosomidae","Trogonidae","Upupidae","Phoeniculidae","Bucorvidae","Bucerotidae","Coraciidae","Brachypteraciidae","Alcedinidae","Todidae","Momotidae","Meropidae","Galbulidae","Bucconidae","Capitonidae","Semnornithidae","Ramphastidae","Megalaimidae","Lybiidae","Indicatoridae","Picidae","Cariamidae","Falconidae","Strigopidae","Cacatuidae","Psittacidae","Psittaculidae","Acanthisittidae","Sapayoidae","Philepittidae","Eurylaimidae","Calyptomenidae","Pittidae","Furnariidae","Thamnophilidae","Formicariidae","Grallariidae","Conopophagidae","Rhinocryptidae","Melanopareiidae","Tyrannidae","Cotingidae","Pipridae","Tityridae","Menuridae","Atrichornithidae","Ptilonorhynchidae","Climacteridae","Maluridae","Meliphagidae","Dasyornithidae","Pardalotidae","Acanthizidae","Pomatostomidae","Orthonychidae","Cnemophilidae","Melanocharitidae","Paramythiidae","Callaeidae","Notiomystidae","Psophodidae","Cinclosomatidae","Platysteiridae","Malaconotidae","Machaerirhynchidae","Vangidae","Pityriasidae","Artamidae","Rhagologidae","Aegithinidae","Campephagidae","Mohouidae","Neosittidae","Eulacestomatidae","Oreoicidae","Falcunculidae","Pachycephalidae","Vireonidae","Oriolidae","Dicruridae","Rhipiduridae","Monarchidae","Platylophidae","Laniidae","Corvidae","Corcoracidae","Melampittidae","Ifritidae","Paradisaeidae","Petroicidae","Picathartidae","Chaetopidae","Eupetidae","Bombycillidae","Ptiliogonatidae","Hypocoliidae","Dulidae","Mohoidae","Hylocitreidae","Stenostiridae","Paridae","Remizidae","Nicatoridae","Panuridae","Alaudidae","Pycnonotidae","Hirundinidae","Pnoepygidae","Macrosphenidae","Cettiidae","Scotocercidae","Erythrocercidae","Hyliidae","Aegithalidae","Phylloscopidae","Acrocephalidae","Locustellidae","Donacobiidae","Bernieridae","Cisticolidae","Sylviidae","Paradoxornithidae","Zosteropidae","Timaliidae","Pellorneidae","Alcippeidae","Leiothrichidae","Modulatricidae","Promeropidae","Irenidae","Regulidae","Elachuridae","Hyliotidae","Troglodytidae","Polioptilidae","Sittidae","Tichodromidae","Certhiidae","Salpornithidae","Mimidae","Sturnidae","Buphagidae","Turdidae","Muscicapidae","Cinclidae","Chloropseidae","Dicaeidae","Nectariniidae","Passeridae","Ploceidae","Estrildidae","Viduidae","Peucedramidae","Prunellidae","Motacillidae","Urocynchramidae","Fringillidae","Calcariidae","Rhodinocichlidae","Emberizidae","Passerellidae","Calyptophilidae","Phaenicophilidae","Nesospingidae","Spindalidae","Zeledoniidae","Teretistridae","Icteriidae","Icteridae","Parulidae","Mitrospingidae","Cardinalidae","Thraupidae"]
+
+def GET_PROMPT(caption_text, probs, labels):
+    prob_0 = str(probs[0][0].item())
+    prob_1 = str(probs[0][1].item())
+    prob_2 = str(probs[0][2].item())
+    label_0, label_1, label_2 = labels
+    PROMPT = f"""You are an expert ornithologist with extensive experience in bird identification and research. You have been provided with complementary AI model outputs to help identify and describe a bird in an image:\n
+
+    1. Image Caption Model Output:
+    {caption_text}
+
+    2. Bird Classification Results:
+    - Top prediction: {label_0} (Confidence: {prob_0})
+    - Second prediction: {label_1} (Confidence: {prob_1})
+    - Third prediction: {label_2} (Confidence: {prob_2})
+
+    Based on these observations, please:
+    1. Determine the most likely species
+    2. Explain why this identification makes sense given both the visual description and classification results
+    3. If there are any discrepancies between the caption and classifications, explain what might cause this
+    4. Provide brief information about the identified species' typical behavior and habitat
+
+    If you're uncertain about the exact species, please explain why and discuss the most likely possibilities.
+    """
+    return PROMPT

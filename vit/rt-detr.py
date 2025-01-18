@@ -32,6 +32,8 @@ parser.add_argument("--pipeline_name", type=str, default=None)
 parser.add_argument("--target_cls_idx", type=int, default=1)
 args = parser.parse_args()
 
+
+        
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("running on : ", device)
 

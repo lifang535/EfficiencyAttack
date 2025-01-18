@@ -79,7 +79,7 @@ if __name__ == "__main__":
     height, width = target_size[0][0], target_size[0][1]
     scores, labels, boxes = util.parse_prediction(output)
     # normed_detr_boxes = util.scale_boxes(boxes, height, width)
-    yolo_boxes = util.xxyy2xywh(boxes)
+    yolo_boxes = util.xyxy2xywh(boxes)
     
     pdb.set_trace()
     # result.logits.shape
