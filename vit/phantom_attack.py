@@ -203,7 +203,7 @@ class IoU(nn.Module):
         for (img_clean_preds, img_patch_preds) in zip(pred_clean_bboxes, pred_patch_bboxes):  # per image
 
             for clean_det in img_clean_preds:
-
+                # pdb.set_trace()
                 clean_clss = clean_det[5]
 
                 clean_xyxy = torch.stack([clean_det])  # .clone()
@@ -283,9 +283,17 @@ def write_results(filename, results):
     logger.info('save results to {}'.format(filename))
 
 def max_objects(output_patch, conf_thres=0.25, target_class=0):
+    scores = output_patch["scores"]  # Shape: (batch_size, num_queries, num_classes)
+    labels = output_patch["labels"]  # Shape: (batch_size, num_queries)
+    boxes = output_patch["boxes"] 
+    scores = scores.unsqueeze(-1)  # Shape: (1000, 1)
+    labels = labels.unsqueeze(-1)  # Shape: (1000, 1)
+    combined = torch.cat([boxes, scores, labels], dim=-1)  # Shape: (1000, 6)
+    output_patch = combined.unsqueeze(0)
 
+    
     x2 = output_patch[:, :, 5:] * output_patch[:, :, 4:5]
-
+    x2 = output_patch
     conf, j = x2.max(2, keepdim=False)
 
     all_target_conf = x2[:, :, target_class]
@@ -303,7 +311,6 @@ def max_objects(output_patch, conf_thres=0.25, target_class=0):
 
 
 def bboxes_area(output_clean, output_patch, patch_size, conf_thres=0.25):
-
     def xywh2xyxy(x):
         # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
         y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
@@ -312,11 +319,17 @@ def bboxes_area(output_clean, output_patch, patch_size, conf_thres=0.25):
         y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
         y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
         return y
-
+    scores = output_patch["scores"]  # Shape: (batch_size, num_queries, num_classes)
+    labels = output_patch["labels"]  # Shape: (batch_size, num_queries)
+    boxes = output_patch["boxes"] 
+    scores = scores.unsqueeze(-1)  # Shape: (1000, 1)
+    labels = labels.unsqueeze(-1)  # Shape: (1000, 1)
+    combined = torch.cat([boxes, scores, labels], dim=-1)  # Shape: (1000, 6)
+    output_patch = combined.unsqueeze(0)
     t_loss = 0.0
     preds_num = 0
 
-    xc_patch = output_patch[..., 4] > conf_thres
+    xc_patch = output_patch[:, :, 4] > conf_thres
     not_nan_count = 0
 
     # For each img in the batch
@@ -420,7 +433,7 @@ class PhantomAttack:
     """
 
     def __init__(
-        self, image_list, image_name_list, img_size, results_dict = {}, epochs=-1, device=None):
+        self, model, image_processor, image_list, image_name_list, img_size, results_dict = {}, epochs=-1, device=None):
         """
         Args:
             dataloader (Dataloader): evaluate dataloader.
@@ -444,8 +457,8 @@ class PhantomAttack:
         self.epochs = epochs
         self.device = device  
         self.results_dict = results_dict    
-        self.image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
-        self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(self.device)
+        self.image_processor = image_processor
+        self.model = model
         self.model.eval()
         self.names = CONSTANTS.DETR_DICT
 
@@ -462,15 +475,37 @@ class PhantomAttack:
         init_images.clamp_(min=0, max=1)
         init_images = (init_images - self.rgb_means)/self.std
         with torch.no_grad():
-            output_clean = self.model(init_images)[0].detach()
+            output_clean = self.model(init_images)
             # output_clean = model(init_images).detach()
-        output_patch = self.model(applied_patch)[0]
+        output_patch = self.model(applied_patch)
+        target_size = [init_images.shape[2:] for _ in range(1)]
+        output_patch = self.image_processor.post_process_object_detection(output_patch, 
+                                                                    threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                    target_sizes = target_size)[0]
 
         max_objects_loss = max_objects(output_patch,conf_thres=self.confthre)
         
         bboxes_area_loss = bboxes_area(output_clean, output_patch, init_images.shape[1:])
         # TODO:
         # vit
+        scores = output_patch["scores"] 
+        labels = output_patch["labels"]  
+        boxes = output_patch["boxes"] 
+        scores = scores.unsqueeze(-1)  
+        labels = labels.unsqueeze(-1)  
+        combined = torch.cat([boxes, scores, labels], dim=-1)  
+        output_patch = combined.unsqueeze(0)
+        output_clean = self.image_processor.post_process_object_detection(output_clean, 
+                                                                    threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                    target_sizes = target_size)[0]
+ 
+        clean_scores = output_clean["scores"] 
+        clean_labels = output_clean["labels"]  
+        clean_boxes = output_clean["boxes"] 
+        clean_scores = clean_scores.unsqueeze(-1)  
+        clean_labels = clean_labels.unsqueeze(-1)  
+        clean_combined = torch.cat([clean_boxes, clean_scores, clean_labels], dim=-1)  
+        output_clean = clean_combined.unsqueeze(0)
         iou_loss = iou(output_clean, output_patch)
         loss = max_objects_loss * lambda_1
 
@@ -607,7 +642,8 @@ class PhantomAttack:
                 best_outputs = {key: value.clone() for key, value in outputs.items()} # Store the current result
             tqdm.write(f"labels: {labels} count: {count}")
 
-        
+
+            
         if args.pipeline_name == "caption":
 
             start_time = time.perf_counter()
@@ -632,7 +668,19 @@ class PhantomAttack:
             elapsed_time = (end_time - start_time) * 1000
         else:
             elapsed_time = -1
+        # pdb.set_trace()
+        if args.pipeline_name == None:
+            start_time = time.perf_counter()
             
+            _ = self.model(applied_patch) 
+            _ = self.image_processor.post_process_object_detection(result, 
+                                                                    threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                    target_sizes = target_size)[0]
+
+            end_time = time.perf_counter()
+            elapsed_time = (end_time - start_time) * 1000
+            max_count = labels.tolist()
+            torch.cuda.empty_cache()
         self.results_dict[f"image_{image_name}"] = {"corrupted_bbox_num": max_count, "inference time": round(elapsed_time, 2)}
 
 

@@ -53,8 +53,4 @@ def llama_inference(prompt, model_name="llama3", base_url="http://localhost:1143
 
 if __name__ == "__main__":
     prompt = "can you take image as input?"
-    result = query_ollama_api(prompt)
-    print(result)
-    tensor = torch.rand(100,100,3)
-    image_result = query_ollama_api_with_tensor(prompt, tensor)
-    print(image_result)
+    result = llama_inference(prompt)

@@ -20,7 +20,7 @@ import os
 import random
 import time
 
-util.set_all_seeds(42)
+util.set_all_seeds(0)
 
 parser = argparse.ArgumentParser(description="DETR hyperparam setup")
 parser.add_argument("--epoch_num", type=int, default=100)
@@ -32,9 +32,12 @@ args = parser.parse_args()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("running on : ", device)
+configuration =  DetrConfig("facebook/detr-resnet-50")
+configuration.num_queries = 1000
+
 
 image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
-model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(device)
+model = DetrForObjectDetection(configuration).to(device)
 # model.config.num_queries = 1000
 
 model.eval()
@@ -89,7 +92,8 @@ if __name__ == "__main__":
     import phantom_attack
 
     # clean_bbox_num = (pred_scores > 0.9).sum()
-    phantom = phantom_attack.PhantomAttack(image_list=coco_data,
+    phantom = phantom_attack.PhantomAttack(model, image_processor,
+                                           image_list=coco_data,
                                         image_name_list=None,
                                         img_size=None,
                                         epochs=args.epoch_num,
@@ -112,7 +116,7 @@ if __name__ == "__main__":
     import overload_attack
 
     # clean_bbox_num = (pred_scores > 0.9).sum()
-    overload = overload_attack.OverloadAttack(image_list=coco_data,
+    overload = overload_attack.OverloadAttack(model, image_processor,image_list=coco_data,
                                               image_name_list=None,
                                               img_size=None,
                                               epochs=args.epoch_num,
@@ -123,7 +127,8 @@ if __name__ == "__main__":
   if args.algo_name == "slow":
     import stra_attack
     # raise ValueError("not implemented")
-    slow = stra_attack.StraAttack(image_list=coco_data,
+    slow = stra_attack.StraAttack(model, image_processor,
+                                  image_list=coco_data,
                                   image_name_list=None,
                                   img_size=None,
                                   epochs=args.epoch_num,

@@ -44,7 +44,17 @@ import logging
 sys.path.append("../captioning")
 from ms_captioning import MSCaptioning
 from detr import args
+import multiprocessing as mp
+from multiprocessing import Process, Queue
+from torchvision.transforms import ToPILImage
+import torch
+import multiprocessing as mp
+from multiprocessing import Process, Queue
+from tqdm import tqdm
+from torchvision.transforms import ToPILImage
+import gc
 
+            
 def create_logger(module, filename, level):
     # os.makedirs(logger_path, exist_ok=True)
 
@@ -219,7 +229,7 @@ class OverloadAttack:
     """
 
     def __init__(
-        self, image_list, image_name_list, img_size, results_dict = {}, epochs=-1, device=None):
+        self, model, image_processor, image_list, image_name_list, img_size, results_dict = {}, epochs=-1, device=None):
         """
         Args:
             dataloader (Dataloader): evaluate dataloader.
@@ -241,8 +251,8 @@ class OverloadAttack:
         self.epochs = epochs
         self.device = device  
         self.results_dict = results_dict    
-        self.image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
-        self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(self.device)
+        self.image_processor = image_processor
+        self.model = model.to(self.device)
         self.model.eval()
         self.names = CONSTANTS.DETR_DICT
 
@@ -384,7 +394,18 @@ class OverloadAttack:
             elapsed_time = (end_time - start_time) * 1000
         else:
             elapsed_time = -1
+        if args.pipeline_name == None:
+            start_time = time.perf_counter()
             
+            _ = self.model(added_imgs) 
+            _ = self.image_processor.post_process_object_detection(result, 
+                                                                    threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                    target_sizes = target_size)[0]
+
+            end_time = time.perf_counter()
+            elapsed_time = (end_time - start_time) * 1000
+            max_count = labels.tolist()
+            torch.cuda.empty_cache()
         self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(self.clean_count), "corrupted_bbox_num": max_count, "inference time": round(elapsed_time, 2)}
 
         # pdb.set_trace()

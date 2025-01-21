@@ -181,6 +181,7 @@ class StraAttack:
 
     def __init__(
         self,
+        model, image_processor,
         image_list,
         image_name_list,
         img_size, 
@@ -211,8 +212,8 @@ class StraAttack:
         self.epochs = epochs
         self.device = device  
         self.results_dict = results_dict    
-        self.image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
-        self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(self.device)
+        self.image_processor = image_processor
+        self.model = model.to(self.device)
         self.model.eval()
         self.names = CONSTANTS.DETR_DICT
         
@@ -363,7 +364,18 @@ class StraAttack:
             elapsed_time = (end_time - start_time) * 1000
         else:
             elapsed_time = -1
+        if args.pipeline_name == None:
+            start_time = time.perf_counter()
             
+            _ = self.model(added_imgs) 
+            _ = self.image_processor.post_process_object_detection(result, 
+                                                                    threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                    target_sizes = target_size)[0]
+
+            end_time = time.perf_counter()
+            elapsed_time = (end_time - start_time) * 1000
+            max_count = labels.tolist()
+            torch.cuda.empty_cache()
         self.results_dict[f"image_{image_name}"] = {"corrupted_bbox_num": max_count, "inference time": round(elapsed_time, 2)}
 
 

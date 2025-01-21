@@ -1,7 +1,7 @@
 DIR_COCO_IMAGE_FOLDER="../coco/test2017/"
 DIR_COCO_JSON_FILE="../coco/annotations/image_info_test2017.json"
 POST_PROCESS_THRESH=0.25
-BBOX_TOPK=100
+BBOX_TOPK=0.25
 COCO_CLASSES = [
     "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", 
     "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
@@ -250,4 +250,8 @@ def GET_PROMPT(caption_text, probs, labels):
 
     If you're uncertain about the exact species, please explain why and discuss the most likely possibilities.
     """
+    return PROMPT
+  
+def GET_TRANSLATE_PROMPT(original_language):
+    PROMPT = f"Please translate the following text from English to German:\n\n{original_language}"
     return PROMPT

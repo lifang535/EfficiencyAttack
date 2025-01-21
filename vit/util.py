@@ -251,8 +251,40 @@ def move_to_cpu(data):
     
     
     
-def crop_img(image_tensor, box):
+def _crop_img(image_tensor, box):
     x_min, y_min, x_max, y_max = box
+    
+    if x_max <= x_min:
+        x_max = x_min + 1
+    if y_max <= y_min:
+        y_max = y_min + 1
+    
     cropped_tensor = image_tensor[:, :, y_min:y_max, x_min:x_max]  # Shape: (3, cropped_height, cropped_width)
 
+    return cropped_tensor
+
+def crop_img(image_tensor, box):
+    x_min, y_min, x_max, y_max = box
+    _, _, height, width = image_tensor.shape
+    
+    # 如果裁剪框完全无效（宽或高为0），返回原图或者一个最小的有效裁剪
+    if x_max <= x_min or y_max <= y_min:
+        # 返回一个1x1的裁剪，使用左上角坐标
+        x_min = min(x_min, width - 1)
+        y_min = min(y_min, height - 1)
+        return image_tensor[:, :, y_min:y_min+1, x_min:x_min+1]
+    
+    # 确保所有坐标都在图片范围内
+    x_min = max(0, min(x_min, width - 1))
+    x_max = max(x_min + 1, min(x_max, width))  # 确保x_max至少比x_min大1
+    y_min = max(0, min(y_min, height - 1))
+    y_max = max(y_min + 1, min(y_max, height))  # 确保y_max至少比y_min大1
+    
+    cropped_tensor = image_tensor[:, :, y_min:y_max, x_min:x_max]
+    
+    # 验证裁剪结果
+    if cropped_tensor.shape[2] == 0 or cropped_tensor.shape[3] == 0:
+        # 如果还是出现了0宽度或高度，返回一个1x1的裁剪
+        return image_tensor[:, :, y_min:y_min+1, x_min:x_min+1]
+        
     return cropped_tensor

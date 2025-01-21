@@ -3,6 +3,8 @@ from datasets import load_dataset
 import CONSTANTS
 import torch
 from transformers import DetrConfig, AutoImageProcessor, DetrForObjectDetection
+from transformers import RTDetrImageProcessor, RTDetrForObjectDetection
+
 
 from PIL import Image
 import requests
@@ -33,17 +35,16 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = torch.device('cuda:1')
-    
-    configuration =  DetrConfig()
-    configuration.num_queries = 100
-    print(configuration)
-    
-    image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
-    # model = DetrForObjectDetection(configuration).to(device)
-    model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(device)
+    from transformers import RTDetrConfig, RTDetrForObjectDetection
+    config = RTDetrConfig.from_pretrained("PekingU/rtdetr_r50vd")
+    config.num_queries = 1000  # Set the desired number of queries
+    image_processor = RTDetrImageProcessor.from_pretrained("PekingU/rtdetr_r50vd")
+    model = RTDetrForObjectDetection(config).to(device)
+    # model.config.num_queries = 1000
     # model.config.num_queries = 1000
 
     model.eval()
+    print(model.config.num_queries)
     input = image_processor(images=image, return_tensors="pt").to(device)
     img_tensor = input["pixel_values"]
     img_tensor = util.denormalize(img_tensor)
@@ -56,32 +57,24 @@ if __name__ == "__main__":
     probabilities = F.sigmoid(logits)  
 
     # Get the highest probability and corresponding class for each query
-    max_probs, predicted_classes = probabilities.max(dim=-1)  # Shape: [100]
-
-    # Filter scores greater than 0.25
-    threshold = 0.25
-    high_conf_indices = (max_probs > threshold).nonzero(as_tuple=True)
-
-    # Get the high-confidence queries
-    filtered_probs = max_probs[high_conf_indices]
-    filtered_classes = predicted_classes[high_conf_indices]
-    filtered_indices = high_conf_indices[0]
-    # Query indices
-
-    # Print results
-    for i in range(len(filtered_probs)):
-        print(f"Query Index: {filtered_indices[i]}, Class: {filtered_classes[i]}, Confidence: {filtered_probs[i].item()}")
+    # max_probs, predicted_classes = probabilities.max(dim=-1)  # Shape: [100]
+    # high_conf_indices = (max_probs > CONSTANTS.POST_PROCESS_THRESH).nonzero(as_tuple=True)
+    # filtered_probs = max_probs[high_conf_indices]
+    # filtered_classes = predicted_classes[high_conf_indices]
+    # filtered_indices = high_conf_indices[0]
+    # for i in range(len(filtered_probs)):
+    #     print(f"Query Index: {filtered_indices[i]}, Class: {filtered_classes[i]}, Confidence: {filtered_probs[i].item()}")
     
     output = image_processor.post_process_object_detection(result, 
-                                                           threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                           threshold = 0.0, 
                                                            target_sizes = target_size)[0]
     
     height, width = target_size[0][0], target_size[0][1]
     scores, labels, boxes = util.parse_prediction(output)
+    # print(scores)
+    print(len(labels))
     # normed_detr_boxes = util.scale_boxes(boxes, height, width)
-    yolo_boxes = util.xyxy2xywh(boxes)
     
-    pdb.set_trace()
     # result.logits.shape
     # print(model.config)
     # print(dir(configuration))

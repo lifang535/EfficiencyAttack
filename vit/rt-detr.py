@@ -22,7 +22,7 @@ from datetime import datetime
 # import stra_attack
 import time
 
-util.set_all_seeds(42)
+util.set_all_seeds(0)
 
 parser = argparse.ArgumentParser(description="DETR hyperparam setup")
 parser.add_argument("--epoch_num", type=int, default=100)
@@ -37,8 +37,11 @@ args = parser.parse_args()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("running on : ", device)
 
+from transformers import RTDetrConfig, RTDetrForObjectDetection
+config = RTDetrConfig.from_pretrained("PekingU/rtdetr_r50vd")
+config.num_queries = 1000  # Set the desired number of queries
 image_processor = RTDetrImageProcessor.from_pretrained("PekingU/rtdetr_r50vd")
-model = RTDetrForObjectDetection.from_pretrained("PekingU/rtdetr_r50vd").to(device)
+model = RTDetrForObjectDetection(config).to(device)
 model.eval()
 
 to_tensor = transforms.ToTensor()
@@ -92,7 +95,7 @@ if __name__ == "__main__":
       
   if args.algo_name == "overload":
     import overload_attack
-    oa = overload_attack.OverloadAttack(image_list=coco_data,
+    oa = overload_attack.OverloadAttack(model, image_processor,image_list=coco_data,
                                         image_name_list=None,
                                         img_size=None,
                                         epochs=args.epoch_num,
@@ -112,13 +115,24 @@ if __name__ == "__main__":
   if args.algo_name == "slow":
     import stra_attack
     # raise ValueError("not implemented")
-    slow = stra_attack.StraAttack(image_list=coco_data,
+    slow = stra_attack.StraAttack(model, image_processor,
+                                  image_list=coco_data,
                                   image_name_list=None,
                                   img_size=None,
                                   epochs=args.epoch_num,
                                   device=device)
     slow.run()
     results_dict = slow.results_dict
+  if args.algo_name == "phantom":
+    import phantom_attack
+    phantom = phantom_attack.PhantomAttack(model, image_processor,
+                                            image_list=coco_data,
+                                            image_name_list=None,
+                                            img_size=None,
+                                            epochs=args.epoch_num,
+                                            device=device)
+    phantom.run()
+    results_dict = phantom.results_dict
   # if args.algo_name == "infer":
   #   output_path = "../prediction/rt-detr_eval_result.json"
   #   with open(output_path, "w") as f:

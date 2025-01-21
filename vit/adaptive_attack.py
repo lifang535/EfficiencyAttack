@@ -50,220 +50,8 @@ import logging
 import multiprocessing as mp
 from multiprocessing import Process, Queue
 from torchvision.transforms import ToPILImage
-import torch
-import multiprocessing as mp
-from multiprocessing import Process, Queue
-from tqdm import tqdm
-from torchvision.transforms import ToPILImage
 import gc
-
-# 设置多进程启动方法为 'spawn'
-mp.set_start_method('spawn', force=True)
-
-def ensure_tensor_dimensions(tensor):
-    """确保张量具有正确的维度 [C, H, W]"""
-    if tensor.dim() == 2:  # 如果是2D，添加channel维度
-        tensor = tensor.unsqueeze(0)
-    elif tensor.dim() == 4:  # 如果是4D (batch included)，去掉batch维度
-        tensor = tensor.squeeze(0)
-    return tensor
-
-def subprocess_caption(cropped_list, device, output_queue):
-    """Caption处理进程"""
-    torch.cuda.set_device(device)
-    
-    # 只加载一次模型
-    ms_captioning = MSCaptioning(device=device)
-    ms_captioning.load_processor_checkpoint()
-    ms_captioning.load_model()
-    
-    results = {}
-    
-    try:
-        for cropped_img, idx in tqdm(cropped_list, desc="Processing MS Captioning"):
-            # 确保在处理每张图片前清理不需要的缓存
-            torch.cuda.empty_cache()
-            
-            with torch.no_grad():
-                caption = ms_captioning.inference(cropped_img)
-                results[idx] = caption
-                print("CAPTION")
-    
-    finally:
-        # 确保最后清理模型
-        del ms_captioning
-        torch.cuda.empty_cache()
-    
-    output_queue.put(('caption', results))
-    output_queue.put(('caption', None))
-
-def subprocess_clip(cropped_list, device, output_queue):
-    """CLIP处理进程"""
-    torch.cuda.set_device(device)
-    
-    # 只加载一次模型
-    openai_clip = CLIP(device)
-    openai_clip.load_model()
-    openai_clip.load_processor()
-    
-    to_pil = ToPILImage()
-    results = {}
-    
-    try:
-        for cropped_img, idx in tqdm(cropped_list, desc="Processing CLIP"):
-            # 确保在处理每张图片前清理不需要的缓存
-            torch.cuda.empty_cache()
-            
-            cropped_img = ensure_tensor_dimensions(cropped_img)
-            with torch.no_grad():  # 确保不会累积梯度
-                cpu_cropped_img = cropped_img.cpu()
-                image = to_pil(cpu_cropped_img)
-                
-                probs, labels = openai_clip.inference(
-                    CONSTANTS.BRID_FAMILY_NAME_LATIN, 
-                    image, 
-                    top_k=3
-                )
-                results[idx] = (probs, labels)
-                
-                # 主动清理不需要的变量
-                del cpu_cropped_img
-                del image
-                
-                print("CLIP")
-    
-    finally:
-        # 确保最后清理模型
-        del openai_clip
-        torch.cuda.empty_cache()
-    
-    output_queue.put(('clip', results))
-    output_queue.put(('clip', None))
-
-def subprocess_llama3(input_queue, output_queue):
-    """LLama处理进程"""
-    print("LLAMA: Starting")
-    
-    caption_results = {}
-    clip_results = {}
-    final_results = {}
-    
-    received_caption = False
-    received_clip = False
-    
-    try:
-        while not (received_caption and received_clip):
-            process_type, data = input_queue.get(timeout=60)
-            
-            if data is None:
-                if process_type == 'caption':
-                    received_caption = True
-                    print("LLAMA: Caption complete")
-                elif process_type == 'clip':
-                    received_clip = True
-                    print("LLAMA: CLIP complete")
-                continue
-            
-            if process_type == 'caption':
-                caption_results.update(data)
-            elif process_type == 'clip':
-                clip_results.update(data)
-            
-            # 尝试处理已配对的数据
-            for idx in set(caption_results.keys()) & set(clip_results.keys()):
-                if idx not in final_results:
-                    caption = caption_results[idx]
-                    probs, labels = clip_results[idx]
-                    final_results[idx] = CONSTANTS.GET_PROMPT(
-                        caption_text=caption,
-                        probs=probs,
-                        labels=labels
-                    )
-                    print(f"LLAMA: Processed {idx}")
-        
-        print(f"LLAMA: Processing complete. Total processed: {len(final_results)}")
-        output_queue.put(('llama', final_results))
-        output_queue.put(('llama', None))  # 发送完成信号
-        print("LLAMA: Results sent")
-        
-    except Exception as e:
-        print(f"LLAMA: Error: {e}")
-        output_queue.put(('llama', final_results))
-        output_queue.put(('llama', None))
-    finally:
-        # 清理队列
-        while not input_queue.empty():
-            try:
-                input_queue.get_nowait()
-            except:
-                pass
-
-class MultiProcessPipeline:
-    def __init__(self, gpu_ids=(0,1)):
-        self.gpu_ids = gpu_ids
-        assert len(gpu_ids) >= 2, "Need at least 2 GPUs"
-        
-    def run_pipeline(self, cropped_list):
-        intermediate_queue = Queue()
-        final_queue = Queue()
-        
-        p1 = Process(target=subprocess_caption, 
-                    args=(cropped_list, self.gpu_ids[0], intermediate_queue))
-        p2 = Process(target=subprocess_clip, 
-                    args=(cropped_list, self.gpu_ids[1], intermediate_queue))
-        p3 = Process(target=subprocess_llama3, 
-                    args=(intermediate_queue, final_queue))
-        
-        try:
-            p1.start()
-            p2.start()
-            p3.start()
-            
-            # 使用超时等待获取结果
-            final_results = None
-            while final_results is None:
-                try:
-                    result_type, result_data = final_queue.get(timeout=60)
-                    if result_data is not None:
-                        final_results = result_data
-                except Exception as e:
-                    print(f"Error waiting for results: {e}")
-                    break
-            
-            # 给进程一个合理的时间来完成
-            p1.join(timeout=5)
-            p2.join(timeout=5)
-            p3.join(timeout=5)
-            
-            # 强制终止未完成的进程
-            for p in [p1, p2, p3]:
-                if p.is_alive():
-                    print(f"Force terminating process {p.name}")
-                    p.terminate()
-                    p.join(timeout=1)
-            
-            return final_results or {}
-            
-        except KeyboardInterrupt:
-            print("Received keyboard interrupt, cleaning up...")
-            for p in [p1, p2, p3]:
-                if p.is_alive():
-                    p.terminate()
-                    p.join(timeout=1)
-            raise
-        
-        finally:
-            # 清理队列
-            while not intermediate_queue.empty():
-                try:
-                    intermediate_queue.get_nowait()
-                except:
-                    pass
-            while not final_queue.empty():
-                try:
-                    final_queue.get_nowait()
-                except:
-                    pass 
+from mp import concurrent_pipeline
 def create_logger(module, filename, level):
     # Create a formatter for the logger, setting the format of the log with time, level, and message
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -670,15 +458,18 @@ class SingleAttack:
             with torch.no_grad():
                 downstream_scores, downstream_labels, downstream_boxes = util.parse_prediction(best_outputs)
                 cropped_list = []
+                na_cropped_list = []
+
                 # Crop images based on bounding boxes
                 for i, box in enumerate(downstream_boxes):
                     if downstream_labels[i] == args.target_cls_idx:  # Only consider boxes with label == 1
                         cropped_img = util.crop_img(image_tensor=best_img, box=box.int())
                         cropped_list.append((cropped_img, i))  # Store cropped image with its index
+                    if downstream_labels[i] == 0:
+                        na_cropped_img = util.crop_img(image_tensor=best_img, box=box.int())
+                        na_cropped_list.append((na_cropped_img, i))
                 
-                
-                pipeline = MultiProcessPipeline()
-                results = pipeline.run_pipeline(cropped_list)
+                concurrent_pipeline(cropped_list, na_cropped_list, self.device)
                     
                 end_time = time.perf_counter()
                 
