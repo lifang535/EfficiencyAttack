@@ -105,7 +105,8 @@ if __name__ == "__main__":
     # pdb.set_trace()
   if args.algo_name == "ada":
     import adaptive_attack
-    ada = adaptive_attack.SingleAttack(image_list=coco_data,
+    ada = adaptive_attack.SingleAttack(model, image_processor,
+                                       image_list=coco_data,
                                         image_name_list=None,
                                         img_size=None,
                                         epochs=args.epoch_num,

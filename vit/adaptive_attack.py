@@ -278,7 +278,7 @@ class SingleAttack:
     """
 
     def __init__(
-        self, image_list, image_name_list, img_size, epochs=None, device=None, results_dict={}): # args, dataloader, img_size, confthre, nmsthre, num_classes):
+        self, model, image_processor, image_list, image_name_list, img_size, epochs=None, device=None, results_dict={}): # args, dataloader, img_size, confthre, nmsthre, num_classes):
         """
         Args:
             dataloader (Dataloader): evaluate dataloader.
@@ -301,8 +301,8 @@ class SingleAttack:
         self.epochs = epochs
         self.device = device  
         self.results_dict = results_dict    
-        self.image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
-        self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(self.device)
+        self.image_processor = image_processor
+        self.model = model.to(self.device)
         self.model.eval()
         self.names = CONSTANTS.DETR_DICT
         self.learning_rate = 0.001
