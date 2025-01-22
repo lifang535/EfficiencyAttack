@@ -30,7 +30,7 @@ def set_all_seeds(seed=42):
     
 
 # Usage
-def set_target_class(target, num_queries=100):
+def set_target_class(target, class_num=92, num_queries=100):
     # use case:
     # util.set_target_class(1, None)
     if isinstance(target, int):
@@ -39,7 +39,7 @@ def set_target_class(target, num_queries=100):
         target = CONSTANTS.DETR_DICT_LABEL2ID[target]
     else:
         raise TypeError("unexpected type of input")
-    target_tensor = torch.zeros(1, num_queries, 92)
+    target_tensor = torch.zeros(1, num_queries, class_num)
     target_tensor[:, :, target] = 1.0
     return target_tensor
 

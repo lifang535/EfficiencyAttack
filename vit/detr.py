@@ -32,12 +32,9 @@ args = parser.parse_args()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("running on : ", device)
-configuration =  DetrConfig("facebook/detr-resnet-50")
-configuration.num_queries = 1000
-
 
 image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
-model = DetrForObjectDetection(configuration).to(device)
+model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(device)
 # model.config.num_queries = 1000
 
 model.eval()

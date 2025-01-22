@@ -37,10 +37,11 @@ args = parser.parse_args()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("running on : ", device)
 
+
+image_processor = RTDetrImageProcessor.from_pretrained("PekingU/rtdetr_r50vd")
 from transformers import RTDetrConfig, RTDetrForObjectDetection
 config = RTDetrConfig.from_pretrained("PekingU/rtdetr_r50vd")
-config.num_queries = 1000  # Set the desired number of queries
-image_processor = RTDetrImageProcessor.from_pretrained("PekingU/rtdetr_r50vd")
+config.num_queries = 100 
 model = RTDetrForObjectDetection(config).to(device)
 model.eval()
 

@@ -35,11 +35,15 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = torch.device('cuda:1')
+    
+    
+    image_processor = RTDetrImageProcessor.from_pretrained("PekingU/rtdetr_r50vd")
     from transformers import RTDetrConfig, RTDetrForObjectDetection
     config = RTDetrConfig.from_pretrained("PekingU/rtdetr_r50vd")
-    config.num_queries = 1000  # Set the desired number of queries
-    image_processor = RTDetrImageProcessor.from_pretrained("PekingU/rtdetr_r50vd")
+    config.num_queries = 100 
     model = RTDetrForObjectDetection(config).to(device)
+    # model = RTDetrForObjectDetection.from_pretrained("PekingU/rtdetr_r50vd").to(device)
+    print(model.config)
     # model.config.num_queries = 1000
     # model.config.num_queries = 1000
 

@@ -331,7 +331,7 @@ class StraAttack:
                 max_count = max_count.item()
                 
             scores, labels, boxes = util.parse_prediction(outputs)
-            count = (labels == args.target_cls_idx).sum().item()
+            count = len(labels)
             if count > max_count:
                 max_count = max(count, max_count)
                 # max_count = count
@@ -367,14 +367,14 @@ class StraAttack:
         if args.pipeline_name == None:
             start_time = time.perf_counter()
             
-            _ = self.model(added_imgs) 
-            _ = self.image_processor.post_process_object_detection(result, 
-                                                                    threshold = CONSTANTS.POST_PROCESS_THRESH, 
-                                                                    target_sizes = target_size)[0]
-
+            best_results = self.model(best_img) 
+            _ = self.image_processor.post_process_object_detection(best_results, 
+                                                                   threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                   target_sizes = target_size)[0]
             end_time = time.perf_counter()
+            _, best_labels, _ = util.parse_prediction(best_outputs)
             elapsed_time = (end_time - start_time) * 1000
-            max_count = labels.tolist()
+            max_count = best_labels.tolist()
             torch.cuda.empty_cache()
         self.results_dict[f"image_{image_name}"] = {"corrupted_bbox_num": max_count, "inference time": round(elapsed_time, 2)}
 

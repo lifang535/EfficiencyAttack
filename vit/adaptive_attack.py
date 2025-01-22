@@ -431,6 +431,7 @@ class SingleAttack:
                 max_count = max_count.item()
             tqdm.write(f"image_name: {image_name} iter: {iter} count: {count} clean_count: {self.clean_count}")
             tqdm.write(f"label: {labels}")
+            torch.cuda.empty_cache()
         
         if args.pipeline_name == "caption":
 
@@ -476,6 +477,19 @@ class SingleAttack:
             elapsed_time = (end_time - start_time) * 1000
         else:
             elapsed_time = -1
+            
+        if args.pipeline_name == None:
+            start_time = time.perf_counter()
+            
+            _ = self.model(added_imgs) 
+            _ = self.image_processor.post_process_object_detection(result, 
+                                                                    threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                    target_sizes = target_size)[0]
+
+            end_time = time.perf_counter()
+            elapsed_time = (end_time - start_time) * 1000
+            max_count = labels.tolist()
+            torch.cuda.empty_cache()
             
         self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(self.clean_count), "corrupted_bbox_num": max_count, "inference time": round(elapsed_time, 2)}
 
@@ -629,9 +643,9 @@ class SingleAttack:
         per_num_b = (25*45)/max_tracker_num
         per_num_m = (50*90)/max_tracker_num
         per_num_s = (100*180)/max_tracker_num
-
+            
         scores, labels, boxes = util.parse_prediction(output)
-        
+        # pdb.set_trace()
         width = boxes[:, 2] - boxes[:, 0]
         height = boxes[: ,3]- boxes[:, 1]
         
@@ -650,10 +664,11 @@ class SingleAttack:
         
         loss4 = 100*torch.sum(sel_aaa) # lifang535: 相较于 stra_attack，这里的 loss4 是对所有的 box 的面积求和
         
-        target_class_tensor = util.set_target_class(args.target_cls_idx).to(self.device)
+        target_class_tensor = util.set_target_class(args.target_cls_idx, len(probabilities[1])).to(self.device)
+
         loss5 = 0.1 * F.mse_loss(probabilities, target_class_tensor, reduction='sum')
         
-        
+        # =================================================== #
         # total_loss =  loss2 + loss3 + loss4 + loss5 + loss1
         CONSTANTS.MAX_COUNT = 100
         good = (count / (self.clean_count+1e-4)) >= 3.0 or count >=60
@@ -664,6 +679,12 @@ class SingleAttack:
         factor_l4 = H
         total_loss = factor_l2 * loss2 + factor_l3 * loss3 + factor_l4 * loss4 + loss5
         
+        
+        alpha2 = 1 - math.cos(min(epoch_id / args.epoch_num * math.pi, math.pi / 2))
+        alpha3 = 1 - math.cos(min(epoch_id / args.epoch_num * math.pi, math.pi / 2))
+        alpha1 = 3 - alpha2 - alpha3
+        
+        total_loss = alpha1 * loss3 + alpha2 * loss4 + alpha3 * loss2 + loss5
         total_loss.requires_grad_(True)
         
         adam_opt.zero_grad()

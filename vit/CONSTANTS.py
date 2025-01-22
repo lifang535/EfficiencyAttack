@@ -1,7 +1,7 @@
 DIR_COCO_IMAGE_FOLDER="../coco/test2017/"
 DIR_COCO_JSON_FILE="../coco/annotations/image_info_test2017.json"
 POST_PROCESS_THRESH=0.25
-BBOX_TOPK=0.25
+BBOX_TOPK=100
 COCO_CLASSES = [
     "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", 
     "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",

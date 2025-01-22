@@ -361,7 +361,7 @@ class OverloadAttack:
 
             # bx = run_attack(outputs, bx, strategy, max_tracker_num, mask)
             bx = _run_attack(None, outputs, bx, strategy, max_tracker_num, mask)
-            count = (labels == args.target_cls_idx).sum().item()
+            count = len(labels)
             tqdm.write(f"count: {count}")
             if count > max_count:
                 max_count = max(count, max_count)
@@ -397,14 +397,14 @@ class OverloadAttack:
         if args.pipeline_name == None:
             start_time = time.perf_counter()
             
-            _ = self.model(added_imgs) 
-            _ = self.image_processor.post_process_object_detection(result, 
-                                                                    threshold = CONSTANTS.POST_PROCESS_THRESH, 
-                                                                    target_sizes = target_size)[0]
-
+            best_results = self.model(best_img) 
+            _ = self.image_processor.post_process_object_detection(best_results, 
+                                                                   threshold = CONSTANTS.POST_PROCESS_THRESH, 
+                                                                   target_sizes = target_size)[0]
             end_time = time.perf_counter()
+            _, best_labels, _ = util.parse_prediction(best_outputs)
             elapsed_time = (end_time - start_time) * 1000
-            max_count = labels.tolist()
+            max_count = best_labels.tolist()
             torch.cuda.empty_cache()
         self.results_dict[f"image_{image_name}"] = {"clean_bbox_num": int(self.clean_count), "corrupted_bbox_num": max_count, "inference time": round(elapsed_time, 2)}
 
