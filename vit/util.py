@@ -129,9 +129,9 @@ def parse_example(example):
   return image_id, image, width, height, bbox_id, category, bbox, area
   
 def parse_prediction(results):
-  scores = results["scores"]
-  labels = results["labels"]
-  boxes = results["boxes"]
+  scores = results["scores"][:100]
+  labels = results["labels"][:100]
+  boxes = results["boxes"][:100]
   return scores, labels, boxes
 
 def get_label_name(idx):

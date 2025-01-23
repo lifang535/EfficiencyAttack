@@ -42,16 +42,14 @@ from PIL import Image
 sys.path.append("../captioning")
 sys.path.append("../llama3")
 sys.path.append("../zeroshot")
-from ms_captioning import MSCaptioning
-from openai_clip import CLIP
-from llama3_api import llama_inference
+
 from detr import args
 import logging
 import multiprocessing as mp
 from multiprocessing import Process, Queue
 from torchvision.transforms import ToPILImage
 import gc
-from mp import concurrent_pipeline
+# from mp import concurrent_pipeline
 def create_logger(module, filename, level):
     # Create a formatter for the logger, setting the format of the log with time, level, and message
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -278,7 +276,7 @@ class SingleAttack:
     """
 
     def __init__(
-        self, model, image_processor, image_list, image_name_list, img_size, epochs=None, device=None, results_dict={}): # args, dataloader, img_size, confthre, nmsthre, num_classes):
+        self, model, image_processor, image_list, image_name_list, img_size, epochs=None, cls_idx = -0.1, device=None, results_dict={}): # args, dataloader, img_size, confthre, nmsthre, num_classes):
         """
         Args:
             dataloader (Dataloader): evaluate dataloader.
@@ -306,7 +304,7 @@ class SingleAttack:
         self.model.eval()
         self.names = CONSTANTS.DETR_DICT
         self.learning_rate = 0.001
-        
+        self.target_cls_idx = cls_idx
         self.clean_count = -1
         
     def evaluate(
@@ -413,7 +411,7 @@ class SingleAttack:
             if iter == 0:
                 mask = generate_mask(outputs,added_imgs.shape[3],added_imgs.shape[2]).to(self.device)
 
-            count = (labels == args.target_cls_idx).sum().item()
+            count = (labels == self.target_cls_idx).sum().item()
             bx, count = self.run_attack(outputs, result, bx, strategy, max_tracker_num, adam_opt, epoch_id, count, mask, self.device)
             
             # bx, count = _run_attack(None, outputs, bx, strategy, max_tracker_num, mask)
@@ -432,51 +430,54 @@ class SingleAttack:
             tqdm.write(f"image_name: {image_name} iter: {iter} count: {count} clean_count: {self.clean_count}")
             tqdm.write(f"label: {labels}")
             torch.cuda.empty_cache()
-        
-        if args.pipeline_name == "caption":
-
-            start_time = time.perf_counter()
-            with torch.no_grad():
-                downstream_scores, downstream_labels, downstream_boxes = util.parse_prediction(best_outputs)
-                cropped_list = []
-                # Crop images based on bounding boxes
-                for i, box in enumerate(downstream_boxes):
-                    if downstream_labels[i] == args.target_cls_idx:  # Only consider boxes with label == 1
-                        cropped_img = util.crop_img(image_tensor=best_img, box=box.int())
-                        cropped_list.append((cropped_img, i))  # Store cropped image with its index
-                # Perform ms_captioning only for label == 1
-                for cropped_img, idx in tqdm(cropped_list, desc="Processing cropped images"):
-                    ms_captioning = MSCaptioning(device=self.device)
-                    ms_captioning.load_processor_checkpoint()
-                    ms_captioning.load_model()
-                    caption = ms_captioning.inference(cropped_img)
-                end_time = time.perf_counter()
-                
-            elapsed_time = (end_time - start_time) * 1000
             
-        elif args.pipeline_name == "concurrent":
-            start_time = time.perf_counter()
-            with torch.no_grad():
-                downstream_scores, downstream_labels, downstream_boxes = util.parse_prediction(best_outputs)
-                cropped_list = []
-                na_cropped_list = []
+        # from ms_captioning import MSCaptioning
+        # from openai_clip import CLIP
+        # from llama3_api import llama_inference
+        # if args.pipeline_name == "caption":
 
-                # Crop images based on bounding boxes
-                for i, box in enumerate(downstream_boxes):
-                    if downstream_labels[i] == args.target_cls_idx:  # Only consider boxes with label == 1
-                        cropped_img = util.crop_img(image_tensor=best_img, box=box.int())
-                        cropped_list.append((cropped_img, i))  # Store cropped image with its index
-                    if downstream_labels[i] == 0:
-                        na_cropped_img = util.crop_img(image_tensor=best_img, box=box.int())
-                        na_cropped_list.append((na_cropped_img, i))
+        #     start_time = time.perf_counter()
+        #     with torch.no_grad():
+        #         downstream_scores, downstream_labels, downstream_boxes = util.parse_prediction(best_outputs)
+        #         cropped_list = []
+        #         # Crop images based on bounding boxes
+        #         for i, box in enumerate(downstream_boxes):
+        #             if downstream_labels[i] == self.target_cls_idx:  # Only consider boxes with label == 1
+        #                 cropped_img = util.crop_img(image_tensor=best_img, box=box.int())
+        #                 cropped_list.append((cropped_img, i))  # Store cropped image with its index
+        #         # Perform ms_captioning only for label == 1
+        #         for cropped_img, idx in tqdm(cropped_list, desc="Processing cropped images"):
+        #             ms_captioning = MSCaptioning(device=self.device)
+        #             ms_captioning.load_processor_checkpoint()
+        #             ms_captioning.load_model()
+        #             caption = ms_captioning.inference(cropped_img)
+        #         end_time = time.perf_counter()
                 
-                concurrent_pipeline(cropped_list, na_cropped_list, self.device)
+        #     elapsed_time = (end_time - start_time) * 1000
+            
+        # elif args.pipeline_name == "concurrent":
+        #     start_time = time.perf_counter()
+        #     with torch.no_grad():
+        #         downstream_scores, downstream_labels, downstream_boxes = util.parse_prediction(best_outputs)
+        #         cropped_list = []
+        #         na_cropped_list = []
+
+        #         # Crop images based on bounding boxes
+        #         for i, box in enumerate(downstream_boxes):
+        #             if downstream_labels[i] == self.target_cls_idx:  # Only consider boxes with label == 1
+        #                 cropped_img = util.crop_img(image_tensor=best_img, box=box.int())
+        #                 cropped_list.append((cropped_img, i))  # Store cropped image with its index
+        #             if downstream_labels[i] == 0:
+        #                 na_cropped_img = util.crop_img(image_tensor=best_img, box=box.int())
+        #                 na_cropped_list.append((na_cropped_img, i))
+                
+        #         concurrent_pipeline(cropped_list, na_cropped_list, self.device)
                     
-                end_time = time.perf_counter()
+        #         end_time = time.perf_counter()
                 
-            elapsed_time = (end_time - start_time) * 1000
-        else:
-            elapsed_time = -1
+        #     elapsed_time = (end_time - start_time) * 1000
+        # else:
+        #     elapsed_time = -1
             
         if args.pipeline_name == None:
             start_time = time.perf_counter()
@@ -635,7 +636,7 @@ class SingleAttack:
         # Apply softmax to compute probabilities
         logits = result.logits[0]
         # probabilities = F.softmax(logits, dim=-1)  
-        probabilities = F.sigmoid(logits) 
+        probabilities = F.sigmoid(logits)[:100]
         max_probs, predicted_classes = probabilities.max(dim=-1)  # Shape: [100]
         
         # outputs = outputs[0][0] # lifang535 add
@@ -664,7 +665,7 @@ class SingleAttack:
         
         loss4 = 100*torch.sum(sel_aaa) # lifang535: 相较于 stra_attack，这里的 loss4 是对所有的 box 的面积求和
         
-        target_class_tensor = util.set_target_class(args.target_cls_idx, len(probabilities[1])).to(self.device)
+        target_class_tensor = util.set_target_class(self.target_cls_idx, len(probabilities[1])).to(self.device)
 
         loss5 = 0.1 * F.mse_loss(probabilities, target_class_tensor, reduction='sum')
         

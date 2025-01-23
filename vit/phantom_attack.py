@@ -20,16 +20,15 @@ import torch.nn as nn
 import torchvision
 
 from pathlib import Path
-
+import gc
 import sys
 
 sys.path.append("../captioning")
 from ms_captioning import MSCaptioning
 from detr import args
-
-YOLOV5_FILE = Path(f"../../yolov5").resolve()
-if str(YOLOV5_FILE) not in sys.path:
-    sys.path.append(str(YOLOV5_FILE))  # add ROOT to PATH
+# YOLOV5_FILE = Path(f"../../yolov5").resolve()
+# if str(YOLOV5_FILE) not in sys.path:
+#     sys.path.append(str(YOLOV5_FILE))  # add ROOT to PATH
     
 # from models.common import DetectMultiBackend
 # from utils.general import Profile, non_max_suppression
@@ -376,55 +375,55 @@ def xywh2xyxy(x):
     y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
     return y
 
-def run_attack(outputs,bx, strategy, max_tracker_num, mask):
-    return
-    per_num_b = (25*45)/max_tracker_num
-    per_num_m = (50*90)/max_tracker_num
-    per_num_s = (100*180)/max_tracker_num
+# def run_attack(outputs,bx, strategy, max_tracker_num, mask):
+#     return
+#     per_num_b = (25*45)/max_tracker_num
+#     per_num_m = (50*90)/max_tracker_num
+#     per_num_s = (100*180)/max_tracker_num
 
-    scores = outputs[:,5] * outputs[:,4]
+#     scores = outputs[:,5] * outputs[:,4]
 
-    loss2 = 40*torch.norm(bx, p=2)
-    targets = torch.ones_like(scores)
-    loss3 = F.mse_loss(scores, targets, reduction='sum')
-    loss = loss3#+loss2
+#     loss2 = 40*torch.norm(bx, p=2)
+#     targets = torch.ones_like(scores)
+#     loss3 = F.mse_loss(scores, targets, reduction='sum')
+#     loss = loss3#+loss2
     
-    loss.requires_grad_(True)
-    loss.backward(retain_graph=True)
+#     loss.requires_grad_(True)
+#     loss.backward(retain_graph=True)
     
-    # adam_opt.step()
-    bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
-    bx.data = -5.5 * mask * bx.grad+ bx.data
-    count = (scores > 0.25).sum()
-    print('loss',loss.item(),'loss_2',loss2.item(),'loss_3',loss3.item(),'count:',count.item())
-    return bx
+#     # adam_opt.step()
+#     bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
+#     bx.data = -5.5 * mask * bx.grad+ bx.data
+#     count = (scores > 0.25).sum()
+#     # print('loss',loss.item(),'loss_2',loss2.item(),'loss_3',loss3.item(),'count:',count.item())
+#     return bx
 
-def _run_attack(outputs,result,bx, strategy, max_tracker_num, mask):
-    return
-    per_num_b = (25*45)/max_tracker_num
-    per_num_m = (50*90)/max_tracker_num
-    per_num_s = (100*180)/max_tracker_num
+# def _run_attack(outputs,result,bx, strategy, max_tracker_num, mask):
+#     return
+#     per_num_b = (25*45)/max_tracker_num
+#     per_num_m = (50*90)/max_tracker_num
+#     per_num_s = (100*180)/max_tracker_num
 
-    # scores = outputs[:,5] * outputs[:,4] # remove
+#     # scores = outputs[:,5] * outputs[:,4] # remove
     
-    scores = result["scores"] # add
+#     scores = result["scores"] # add
     
-    loss2 = 40*torch.norm(bx, p=2)
-    targets = torch.ones_like(scores)
-    loss3 = F.mse_loss(scores, targets, reduction='sum')
-    loss = loss3#+loss2
-    # loss = loss3+2*(10000-loss2)
-    loss.requires_grad_(True)
-    loss.backward(retain_graph=True)
+#     loss2 = 40*torch.norm(bx, p=2)
+#     targets = torch.ones_like(scores)
+#     loss3 = F.mse_loss(scores, targets, reduction='sum')
+#     loss = loss3#+loss2
+#     # loss = loss3+2*(10000-loss2)
+#     loss.requires_grad_(True)
+#     loss.backward(retain_graph=True)
     
-    bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
-    # bx.data = -3.5 * mask * bx.grad+ bx.data
-    bx.data = torch.clamp(-3.5 * mask * bx.grad+ bx.data, min=-0.2, max=0.2)
-    count = (scores > 0.9).sum()
-    if __name__ == "__main__":
-      pass
-    print(f"loss: {loss.item():.4f}, loss_2: {loss2.item():.4f}, loss_3: {loss3.item():.4f}, count: {count.item()}")
-    return bx, count.item()
+#     bx.grad = bx.grad / (torch.norm(bx.grad,p=2) + 1e-20)
+#     # bx.data = -3.5 * mask * bx.grad+ bx.data
+#     bx.data = torch.clamp(-3.5 * mask * bx.grad+ bx.data, min=-0.2, max=0.2)
+#     count = (scores > 0.9).sum()
+#     if __name__ == "__main__":
+#       pass
+#     # print(f"loss: {loss.item():.4f}, loss_2: {loss2.item():.4f}, loss_3: {loss3.item():.4f}, count: {count.item()}")
+#     return bx, count.item()
 
 class PhantomAttack:
     """
@@ -523,6 +522,9 @@ class PhantomAttack:
 
         self.model.zero_grad()
         data_grad = torch.autograd.grad(loss, adv_patch)[0]
+        del iou, init_images, loss, adv_patch
+        torch.cuda.empty_cache()
+        gc.collect() 
         return data_grad
 
     def fastGradientSignMethod(self, adv_patch, images, device, epsilon=0.3):
@@ -640,8 +642,11 @@ class PhantomAttack:
                 # max_count = count
                 best_img = applied_patch.clone()  # Store the current image
                 best_outputs = {key: value.clone() for key, value in outputs.items()} # Store the current result
-            tqdm.write(f"labels: {labels} count: {count}")
-
+            tqdm.write(f"device:{self.device} count: {count}")
+            torch.cuda.empty_cache()
+            
+            gc.collect()
+            del applied_patch, perturbation
 
             
         if args.pipeline_name == "caption":
@@ -670,22 +675,29 @@ class PhantomAttack:
             elapsed_time = -1
         # pdb.set_trace()
         if args.pipeline_name == None:
-            start_time = time.perf_counter()
-            
-            best_results = self.model(best_img) 
-            _ = self.image_processor.post_process_object_detection(best_results, 
+            with torch.no_grad():
+                start_time = time.perf_counter()
+                best_results = self.model(best_img) 
+                _ = self.image_processor.post_process_object_detection(best_results, 
                                                                    threshold = CONSTANTS.POST_PROCESS_THRESH, 
                                                                    target_sizes = target_size)[0]
-            end_time = time.perf_counter()
-            _, best_labels, _ = util.parse_prediction(best_outputs)
-            elapsed_time = (end_time - start_time) * 1000
-            max_count = best_labels.tolist()
-            torch.cuda.empty_cache()
+                end_time = time.perf_counter()
+                _, best_labels, _ = util.parse_prediction(best_outputs)
+                elapsed_time = (end_time - start_time) * 1000
+                max_count = best_labels.tolist()
+                torch.cuda.empty_cache()
+                gc.collect()
         self.results_dict[f"image_{image_name}"] = {"corrupted_bbox_num": max_count, "inference time": round(elapsed_time, 2)}
-
-
-        added_blob = torch.clamp(applied_patch*255,0,255).squeeze().permute(1, 2, 0).detach().cpu().numpy()
-        added_blob = added_blob[..., ::-1]
+        del best_img
+        del best_results
+        del scores
+        del labels
+        del boxes
+        del imgs
+        del inputs
+        
+        # added_blob = torch.clamp(applied_patch*255,0,255).squeeze().permute(1, 2, 0).detach().cpu().numpy()
+        # added_blob = added_blob[..., ::-1]
         # print(f"added_blob.shape = {added_blob.shape}")
         # print(f"added_blob = {added_blob}")
         # time.sleep(100000)
@@ -718,7 +730,7 @@ class PhantomAttack:
                 image = image[None]
 
             # print(f"image.shape = {image.shape}")
-            
+            torch.cuda.empty_cache()
             mean_l1, mean_l2 = self.evaluate(image, image_name)
 
     def run(self):
@@ -731,6 +743,10 @@ class PhantomAttack:
                 image = image.convert("RGB")
             
             mean_l1, mean_l2 = self.evaluate(image, image_id)
+            self.model.zero_grad()
+
+            torch.cuda.empty_cache()
+            gc.collect()
             
             continue
 

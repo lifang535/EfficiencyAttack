@@ -25,8 +25,8 @@ import time
 util.set_all_seeds(0)
 
 parser = argparse.ArgumentParser(description="DETR hyperparam setup")
-parser.add_argument("--epoch_num", type=int, default=100)
-parser.add_argument("--val_size", type=int, choices=range(1, 4952), default=4952, help="An integer in the range 1-4952 (inclusive)")
+parser.add_argument("--epoch_num", type=int, default=200)
+parser.add_argument("--val_size", type=int, choices=range(1, 4952), default=1000, help="An integer in the range 1-4952 (inclusive)")
 parser.add_argument("--algo_name", type=str, default="infer")
 parser.add_argument("--pipeline_name", type=str, default=None)
 parser.add_argument("--target_cls_idx", type=int, default=1)
@@ -43,6 +43,7 @@ from transformers import RTDetrConfig, RTDetrForObjectDetection
 config = RTDetrConfig.from_pretrained("PekingU/rtdetr_r50vd")
 config.num_queries = 100 
 model = RTDetrForObjectDetection(config).to(device)
+model = RTDetrForObjectDetection.from_pretrained("PekingU/rtdetr_r50vd").to(device)
 model.eval()
 
 to_tensor = transforms.ToTensor()
@@ -77,9 +78,10 @@ if __name__ == "__main__":
       results = image_processor.post_process_object_detection(outputs, 
                                                               threshold = CONSTANTS.POST_PROCESS_THRESH, 
                                                               target_sizes = target_size)[0]
-      # import pdb; pdb.set_trace()
+      
       results = util.move_to_cpu(results)
       pred_scores, pred_labels, pred_boxes = util.parse_prediction(results)
+      # import pdb; pdb.set_trace()
         # for visualization
         # util.visualize_predictions(image, pred_boxes, pred_labels, gt_boxes, category, image_id)
 
@@ -91,7 +93,7 @@ if __name__ == "__main__":
       end_time = time.perf_counter()
       elapsed_time = (end_time - start_time) * 1000
       # results_dict[f"image_{image_id}"] = img_result
-      results_dict[f"image_{image_id}"] = {"inference time": round(elapsed_time, 2)}
+      results_dict[f"image_{image_id}"] = {"inference time": round(elapsed_time, 2), "labels": pred_labels.tolist()}
       
       
   if args.algo_name == "overload":

@@ -19,6 +19,7 @@ from datetime import datetime
 import os
 import random
 import time
+import phantom_attack
 
 util.set_all_seeds(0)
 
@@ -74,20 +75,20 @@ if __name__ == "__main__":
         # for visualization
         # util.visualize_predictions(image, pred_boxes, pred_labels, gt_boxes, category, image_id)
 
-      img_result = util.save_evaluation_to_json(image_id, 
-                                                pred_boxes, 
-                                                pred_scores,
-                                                gt_boxes, 
-                                                iou_threshold=0.5)
+      # img_result = util.save_evaluation_to_json(image_id, 
+      #                                           pred_boxes, 
+      #                                           pred_scores,
+      #                                           gt_boxes, 
+      #                                           iou_threshold=0.5)
       end_time = time.perf_counter()
       elapsed_time = (end_time - start_time) * 1000
       # results_dict[f"image_{image_id}"] = img_result
-      results_dict[f"image_{image_id}"] = {"inference time": round(elapsed_time, 2)}
+      results_dict[f"image_{image_id}"] = {"inference time": round(elapsed_time, 2), "labels": pred_labels.tolist()}
 
     
   if args.algo_name == "phantom":
-    import phantom_attack
-
+    import os
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
     # clean_bbox_num = (pred_scores > 0.9).sum()
     phantom = phantom_attack.PhantomAttack(model, image_processor,
                                            image_list=coco_data,
