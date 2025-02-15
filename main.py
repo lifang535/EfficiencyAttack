@@ -1,4 +1,5 @@
 from datasets import load_dataset
+import dataset
 from utils import set_all_seeds
 import torch
 import random 
@@ -7,7 +8,8 @@ import torch.multiprocessing as mp
 from tqdm import tqdm
 import utils 
 import os 
-
+import pdb
+from model_zoo import load_from_pretrained
 
 set_all_seeds(0)
 
@@ -20,7 +22,7 @@ parser.add_argument('--algorithm', type=str, default=None, choices=["overload", 
 parser.add_argument('--model_id', type=int, default=None, choices=[0,1,2], help="0: PekingU/rtdetr_r50vd, \
                                                                                  1: PekingU/rtdetr_r50vd_coco_o365, \
                                                                                  2: PekingU/rtdetr_v2_r50vd")
-parser.add_argument('--output_dir', type=str, default="./results", help="specify where to save the results")
+parser.add_argument('--output_dir', type=str, default="../results", help="specify where to save the results")
 args = parser.parse_args()
 
 
@@ -28,16 +30,16 @@ args = parser.parse_args()
     
 def process_batch(
         gpu_id,
-        model,
-        image_processor,
         data_batch,
         dir
     ):
-    dir = os.path.join(dir, f"model_{args.model_id}", \
-                            f"{args.algorithm}_tgt_{"_".join(map(str, args.target_idx))}")
+
     try:
         torch.cuda.set_device(gpu_id)
         device = torch.device(f"cuda:{gpu_id}")
+        model, image_processor = load_from_pretrained(args.model_id)
+        model = model.to(device).eval()
+        
         print(f"=============================RUNNING {gpu_id} RUNNING==============================")
         if args.algorithm == "overload":
             from overload import Overload
@@ -56,6 +58,7 @@ def process_batch(
             pass
         else:
             raise ValueError("algorithm not implemented")
+
         
         instance = class_name(
             model = model,
@@ -63,7 +66,7 @@ def process_batch(
             it_num = args.it_num,
             conf_thres = 0.25,
             target_idx = args.target_idx,
-            output_dir = args.output_dir,
+            output_dir = dir,
             device = device
         )
         
@@ -84,7 +87,13 @@ def process_batch(
 
 
 def parallel(coco_data, num_gpus):
-    os.makedirs(args.output_dir, exist_ok=True)
+    if args.target_idx:
+        target_indices = ('_'.join(map(str, args.target_idx)))
+    else:
+        target_indices = "none"
+    dir = os.path.join(args.output_dir, f"model_{args.model_id}", \
+                                        f"{args.algorithm}_tgt_{target_indices}")
+    os.makedirs(dir, exist_ok=True)
     batch_size = len(coco_data) // num_gpus
     data_batches = [
         coco_data.select(range(i * batch_size, (i + 1) * batch_size))
@@ -93,17 +102,16 @@ def parallel(coco_data, num_gpus):
     if len(coco_data) % num_gpus != 0:
         remaining = coco_data.select(range(num_gpus * batch_size, len(coco_data)))
         data_batches[-1] = data_batches[-1].concatenate(remaining)
-        
-    manager = mp.Manager()
-    
+            
     try:
         processes = []
         for gpu_id in range(num_gpus):
             p = mp.Process(
-                process_batch,
+                target=process_batch,
                 args=(
                     gpu_id,
-                    data_batches[gpu_id]
+                    data_batches[gpu_id],
+                    dir
                 )
             )
             
@@ -114,10 +122,9 @@ def parallel(coco_data, num_gpus):
             p.join()
     except Exception as e:
         print(f"Error in parallel processing: {e}")
-        
-    finally:
-        # Clean up manager
-        manager.shutdown()
+        for p in processes:
+            p.terminate() 
+
 
 if __name__ == "__main__":
     if not torch.cuda.is_available():
