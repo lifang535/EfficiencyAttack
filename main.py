@@ -10,6 +10,7 @@ import utils
 import os 
 import pdb
 from model_zoo import load_from_pretrained
+from datasets import concatenate_datasets
 
 set_all_seeds(0)
 
@@ -53,8 +54,8 @@ def process_batch(
             class_name = SlowTrack
             pass
         elif args.algorithm == "teaspoon":
-            from teaspoon import teaspoon
-            class_name = teaspoon
+            from teaspoon import TeaSpoon
+            class_name = TeaSpoon
             pass
         else:
             raise ValueError("algorithm not implemented")
@@ -101,7 +102,7 @@ def parallel(coco_data, num_gpus):
     ]
     if len(coco_data) % num_gpus != 0:
         remaining = coco_data.select(range(num_gpus * batch_size, len(coco_data)))
-        data_batches[-1] = data_batches[-1].concatenate(remaining)
+        data_batches[-1] = concatenate_datasets([data_batches[-1], remaining])
             
     try:
         processes = []

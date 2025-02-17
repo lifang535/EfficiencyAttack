@@ -156,7 +156,6 @@ class BaseAttack:
                 count = count + (self.labels == i).sum().item()
         else:
             count = len(self.labels)
-        print(count)
         if count > self.best_count:
             self.best_count = max(count, self.best_count)
             self.best_labels = self.labels

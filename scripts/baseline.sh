@@ -1,9 +1,9 @@
 #!/bin/bash
 
-#run baseline attack algorithm:
-# - overlaod
-# - phantom
-# - slowtrack
+# run baseline attack algorithm:
+#   - overlaod
+#   - phantom
+#   - slowtrack
 
 python ../main.py --model_id 0 --algorithm overload --it_num 200 --val_size 1000 
 python ../main.py --model_id 1 --algorithm overload --it_num 200 --val_size 1000 
