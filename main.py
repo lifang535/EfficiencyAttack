@@ -11,6 +11,7 @@ import os
 import pdb
 from model_zoo import load_from_pretrained
 from datasets import concatenate_datasets
+from datetime import datetime
 
 set_all_seeds(0)
 
@@ -19,7 +20,7 @@ parser = argparse.ArgumentParser(description="RT-DETR attack setup")
 parser.add_argument('--target_idx', type=int, nargs='+', default=None, help='List of numbers')
 parser.add_argument("--val_size", type=int, default=1000, help="An integer in the range 1-4952 (inclusive)")
 parser.add_argument("--it_num", type=int, default=200, help="iteration num per attack")
-parser.add_argument('--algorithm', type=str, default=None, choices=["overload", "slowtrack", "phantom", "teaspoon"],help="choose from [overload, slowtrack, phantom, teaspoon]")
+parser.add_argument('--algorithm', type=str, default=None, choices=["overload", "slowtrack", "phantom", "teaspoon", "teastatic"],help="choose from [overload, slowtrack, phantom, teaspoon]")
 parser.add_argument('--model_id', type=int, default=None, choices=[0,1,2], help="0: PekingU/rtdetr_r50vd, \
                                                                                  1: PekingU/rtdetr_r50vd_coco_o365, \
                                                                                  2: PekingU/rtdetr_v2_r50vd")
@@ -57,6 +58,10 @@ def process_batch(
             from teaspoon import TeaSpoon
             class_name = TeaSpoon
             pass
+        elif args.algorithm == "teastatic":
+            from teastatic import TeaStatic
+            class_name = TeaStatic
+            pass
         else:
             raise ValueError("algorithm not implemented")
 
@@ -92,8 +97,10 @@ def parallel(coco_data, num_gpus):
         target_indices = ('_'.join(map(str, args.target_idx)))
     else:
         target_indices = "none"
-    dir = os.path.join(args.output_dir, f"model_{args.model_id}", \
-                                        f"{args.algorithm}_tgt_{target_indices}")
+    timestamp = datetime.now().strftime("%m%d%H%M")
+    dir = os.path.join(f"{args.output_dir}", 
+                       f"model_{args.model_id}",
+                       f"{args.algorithm}_tgt_{target_indices}")
     os.makedirs(dir, exist_ok=True)
     batch_size = len(coco_data) // num_gpus
     data_batches = [

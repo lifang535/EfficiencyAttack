@@ -20,3 +20,4 @@ dataset==1.6.2
 datasets==3.1.0
 beautifulsoup4==4.12.3
 accelerate==1.2.1
+pynvml==12.0.0

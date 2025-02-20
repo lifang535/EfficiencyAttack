@@ -10,8 +10,9 @@ import torch.nn as nn
 import torchvision
 import numpy as np
 import time
-import utils
 from model_zoo import load_from_pretrained
+from utils import set_all_seeds
+set_all_seeds(0)
 
 lambda_1 = 1
 lambda_2 = 10
@@ -54,7 +55,7 @@ class Phantom(BaseAttack):
             
             adv_patch, applied_patch = self.fastGradientSignMethod(adv_patch, self.img_tensor)
             perturbation = adv_patch - self.bx
-            if iter == 0:
+            if it == 0:
                 perturbation += torch.normal(mean=0.0, std=0.1, size=perturbation.size()).to(self.device)
             norm = torch.sum(torch.square(perturbation))
             norm = torch.sqrt(norm)
@@ -62,7 +63,7 @@ class Phantom(BaseAttack):
             adv_patch = (torch.clip(self.bx + perturbation * factor, 0.0, 1.0))
 
             self.inference(applied_patch)
-            self.logger()
+            self.logger(it)
         self.write_log()
         
         self.clean_flag = True
@@ -334,17 +335,18 @@ def single_test(num_q = 1000,
                 img_id = 0, 
                 url = None,
                 device = None):
-    
+    print("======================== SINGLE TEST START ========================")
     if not url:
         url = "https://farm5.staticflickr.com/4116/4827719363_31f75f0c8f_z.jpg"
         
     image = Image.open(requests.get(url, stream=True).raw)
 
     thres = 0.25
-    
+
     for i in range(3):
         model, image_processor = load_from_pretrained(i, device)
-        model.config.num_queries = num_q
+        model.config.num_queries = 1000
+
         phantom = Phantom(
             model = model,
             image_processor = image_processor,
@@ -354,12 +356,52 @@ def single_test(num_q = 1000,
             output_dir = f"./output_rt_detr/phantom_test_{i}",
             device = device
         )
+        for j in range(1):
         # phantom.set_iou_param(0.25, 0.45)
         # phantom.init_input(image, img_id)
         # phantom.generate_bx()
-        phantom.run_attack(image, img_id)
+            phantom.run_attack(image, img_id)
+    print("======================== SINGLE TEST  END  ========================")
+        
+def multi_test(num_q = 1000,
+               val_size = 100,
+               device = None
+               ):
+    print("======================== MULTI TEST START ========================")
+
+    from datasets import load_dataset
+    import random
+    import utils
+    from tqdm import tqdm
     
+    coco_data = load_dataset("detection-datasets/coco", split="val")
+    random_indices = random.sample(range(len(coco_data)), val_size)
+    coco_data = coco_data.select(random_indices)
+    
+    for i in range(3):
+        i=2
+        model, image_processor = load_from_pretrained(i, device)
+        model.config.num_queries = 1000
+        phantom = Phantom(
+            model = model,
+            image_processor = image_processor,
+            it_num = 10,
+            conf_thres = 0.25,
+            target_idx = None,
+            output_dir = f"./results/phantom_test_{i}",
+            device = device
+        )
+    
+        for index, example in tqdm(enumerate(coco_data), total=coco_data.__len__(), desc=f"running: multi test"):
+            image_id, image, width, height, bbox_id, category, gt_boxes, area = utils.parse_example(example)
+            phantom.run_attack(image, image_id)
+            # import pdb; pdb.set_trace()
+    print("======================== MULTI TEST  END  ========================")
+
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    single_test(device = device)
+
+    # single_test(device = device)
+    
+    multi_test(device)

@@ -7,6 +7,8 @@ import requests
 import torch.nn.functional as F
 import pdb
 from model_zoo import load_from_pretrained
+from utils import set_all_seeds
+set_all_seeds(0)
 
 class Overload(BaseAttack):
     
@@ -39,7 +41,7 @@ class Overload(BaseAttack):
                 self.mask = self.generate_mask(added_img.shape[3], 
                                                added_img.shape[2]).to(self.device)
             self.update_bx()
-            self.logger()
+            self.logger(it)
         self.write_log()
         
         self.clean_flag = True
@@ -81,13 +83,14 @@ def single_test(num_q = 1000,
             output_dir = f"./output_rt_detr/overload_test_{i}",
             device = device
         )
-        
 
         overload.run_attack(image, img_id)
 
 
     
 if __name__ == "__main__":
+    torch.cuda.empty_cache()
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     single_test(device=device)

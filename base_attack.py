@@ -19,9 +19,10 @@ from transformers import DetrConfig, AutoImageProcessor, DetrForObjectDetection
 from transformers import RTDetrImageProcessor, RTDetrForObjectDetection
 from datetime import datetime
 
-
 ###
 import utils
+from utils import set_all_seeds
+set_all_seeds(0)
 
 class BaseAttack:
     def __init__(self, 
@@ -38,10 +39,11 @@ class BaseAttack:
         self.device = device
         self.it_num = it_num # iteration number of the attack
         self.target_idx = target_idx # list of int
-        self.best_count = -1 # max count of bbox of the desired class
         self.clean_flag = True
         self.output_dir = output_dir
         self.conf_thres = conf_thres
+        self.result_dict = {}
+        
             
     def generate_bx(self):
         """
@@ -149,41 +151,38 @@ class BaseAttack:
         else:
             return data
     
-    def logger(self):
+    def logger(self, it):
         count = 0
         if self.target_idx:
             for i in self.target_idx:
                 count = count + (self.labels == i).sum().item()
         else:
             count = len(self.labels)
-        if count > self.best_count:
-            self.best_count = max(count, self.best_count)
-            self.best_labels = self.labels
-            self.best_boxes = self.boxes
-            self.best_scores = self.scores
-            self.best_infer_t = self.elapsed_time
+
+        tmp_dict = {
+            "count" : count,
+            "labels" : self.labels.tolist(),
+            "scores" : self.scores.tolist(),
+            "boxes" : self.boxes.tolist(),
+            "time" : self.elapsed_time
+        }
+        
+        self.result_dict[it] = tmp_dict
+        
             
     def write_log(self):
-        result_dict= {
-            "clean_bbox_count": self.cl_count,
-            "clean_labels": self.cl_labels.tolist(),
-            "clean_scores": self.cl_scores.tolist(),
-            "clean_boxes": self.cl_boxes.tolist(),
-            "clean_infer_time": self.cl_infer_t,
-            "corrupted_bbox_count": self.best_count,
-            "corrupted_labels": self.best_labels.tolist(),
-            "corrupted_scores": self.best_scores.tolist(),
-            "corrupted_boxes": self.best_boxes.tolist(),
-            "corrupted_infer_time": self.best_infer_t
-        }
-
+        
         os.makedirs(self.output_dir, exist_ok=True)
         file_path = os.path.join(self.output_dir, f"img_id_{str(self.img_id)}.json")
         with open(file_path, 'w', encoding="utf-8") as json_file:
-            json.dump(result_dict, json_file, indent=4)
+            json.dump(self.result_dict, json_file, indent=4)
+            
+        # reset values
+        self.result_dict = {}
         
-    
+        
     def parse_example(self, example):
+        
         image_id = example["image_id"]
         image = example["image"]
         width = example["width"]

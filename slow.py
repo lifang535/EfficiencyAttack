@@ -5,7 +5,8 @@ import requests
 import torch.nn.functional as F
 from model_zoo import load_from_pretrained
 from torch.optim import Adam
-
+from utils import set_all_seeds
+set_all_seeds(0)
 
 class SlowTrack(BaseAttack):
     
@@ -78,7 +79,7 @@ class SlowTrack(BaseAttack):
             _ = self.inference(added_img)
             self.bx = self.update_bx(strategy[it], max_tracker_num)
             # import pdb; pdb.set_trace()
-            self.logger()
+            self.logger(it)
         self.write_log()
         
         self.clean_flag = True

@@ -18,7 +18,7 @@ import math
 
 learning_rate = 0.001
 
-class TeaSpoon(BaseAttack):
+class TeaStatic(BaseAttack):
     
     def run_attack(self, image, img_id):
         self.init_input(image, img_id)
@@ -56,7 +56,7 @@ class TeaSpoon(BaseAttack):
         cls_loss_target_tensor = self.cls_loss_target()
         loss4 = 0.1 * F.mse_loss(self.prob, cls_loss_target_tensor, reduction='sum')
         
-        alpha1, alpha2, alpha3 = self.factor_scheduler(it_count)
+        alpha1, alpha2, alpha3 = 1,1,1
         total_loss = alpha3 * loss2 + alpha2 * loss3 + alpha1 * loss1 + loss4
         total_loss.requires_grad_(True)
         
@@ -101,7 +101,7 @@ def single_test(num_q = 1000,
     for i in range(3):
         model, image_processor = load_from_pretrained(i, device)
         model.config.num_queries = num_q
-        teaspoon = TeaSpoon(
+        teaspoon = StaticTea(
             model = model,
             image_processor = image_processor,
             it_num = 100,
