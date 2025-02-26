@@ -15,20 +15,21 @@ from datetime import datetime
 
 set_all_seeds(0)
 
-
 parser = argparse.ArgumentParser(description="RT-DETR attack setup")
+parser.add_argument("--it_num", type=int, default=200, help="iteration num per attack")
 parser.add_argument('--target_idx', type=int, nargs='+', default=None, help='List of numbers')
 parser.add_argument("--val_size", type=int, default=1000, help="An integer in the range 1-4952 (inclusive)")
-parser.add_argument("--it_num", type=int, default=200, help="iteration num per attack")
-parser.add_argument('--algorithm', type=str, default=None, choices=["overload", "slowtrack", "phantom", "teaspoon", "teastatic"],help="choose from [overload, slowtrack, phantom, teaspoon]")
+parser.add_argument('--output_dir', type=str, default="../results", help="specify where to save the results")
+parser.add_argument('--algorithm', type=str, default=None, choices=["overload", 
+                                                                    "slowtrack", 
+                                                                    "phantom", 
+                                                                    "teaspoon", 
+                                                                    "teastatic"], help="algorithm not found")
 parser.add_argument('--model_id', type=int, default=None, choices=[0,1,2], help="0: PekingU/rtdetr_r50vd, \
                                                                                  1: PekingU/rtdetr_r50vd_coco_o365, \
                                                                                  2: PekingU/rtdetr_v2_r50vd")
-parser.add_argument('--output_dir', type=str, default="../results", help="specify where to save the results")
 args = parser.parse_args()
 
-
-    
     
 def process_batch(
         gpu_id,
@@ -51,7 +52,7 @@ def process_batch(
             class_name = Phantom
             pass
         elif args.algorithm == "slowtrack":
-            from slow import SlowTrack
+            from slowtrack import SlowTrack
             class_name = SlowTrack
             pass
         elif args.algorithm == "teaspoon":
