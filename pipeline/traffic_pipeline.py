@@ -11,9 +11,7 @@ sys.path.append("../")
 from model_zoo import load_from_pretrained
 from tqdm import tqdm
 import os
-
-os.environ['CUDA_LAUNCH_BLOCKING']="1"
-os.environ['TORCH_USE_CUDA_DSA'] = "1"
+import pdb
 
 
 class imgStream(Process):
@@ -45,13 +43,21 @@ class imgStream(Process):
             
             del image_tensor
             torch.cuda.empty_cache()
+            
 
-   
     def _end(self):
         self.img2od_queue.put(None)
         self.end_flag = True
+        while not self.img2od_queue.empty():
+            try:
+                self.img2od_queue.get_nowait()
+            except Empty:
+                continue
         print("imgStream ended")
         
+        
+    def shutdown(self):
+        self.end_flag = True
         
 class odStream(Process):
     def __init__(self, 
@@ -84,7 +90,6 @@ class odStream(Process):
             try:
                 request = self.img2od_queue.get(timeout=1)
 
-                
             except Empty:
                 continue
             if request is None:
@@ -102,11 +107,16 @@ class odStream(Process):
                                   scores.unsqueeze(1), 
                                   labels.unsqueeze(1)), dim=1)
             
+            self.od2fr_queue.put(combined)
+            self.od2lpr_queue.put(combined)
+            self.od2cap_queue.put(combined)
+            
             del request
             del od_output
             del _output
             del scores, labels, boxes
             del combined
+            
             torch.cuda.empty_cache()
     
     
@@ -115,21 +125,50 @@ class odStream(Process):
         self.od2lpr_queue.put(None)
         self.od2cap_queue.put(None)
         self.end_flag = True
+        while not self.od2fr_queue.empty():
+            try:
+                self.od2fr_queue.get_nowait()
+            except Empty:
+                continue
+        while not self.od2lpr_queue.empty():
+            try:
+                self.od2lpr_queue.get_nowait()
+            except Empty:
+                continue
+        while not self.od2cap_queue.empty():        
+            try:
+                self.od2cap_queue.get_nowait()
+            except Empty:
+                continue
         print("odStream ended")
+        
+        
+    def shutdown(self):
+        self.end_flag = True
      
      
    
 def clean_up(process_list, queue_list):
     for q in queue_list:
-        while not q.empty():
-            q.get_nowait()
-        del q
+        try:
+            while not q.empty():
+                q.get_nowait()
+        except Exception:
+            pass
+    # pdb.set_trace()
+    for process in process_list:
+        if hasattr(process, 'shutdown') and process.is_alive():
+            process.shutdown()
+            
     for process in process_list:
         if process.is_alive():
             process.terminate()
+            process.join(timeout=1.0)
+            if process.is_alive():
+                process.kill()  
             process.close()
-            process.join()
 
+    
     torch.cuda.empty_cache()
     
     
