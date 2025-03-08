@@ -32,7 +32,10 @@ class BaseAttack:
                  conf_thres: float = 0.25,  
                  target_idx = None, 
                  output_dir: str = None,  
-                 device: Optional[Union[str, torch.device]] = None):
+                 if_output = True,
+                 device: Optional[Union[str, torch.device]] = None,
+                 if_save = False,
+                 save_dir = None):
         
         self.model = model
         self.image_processor = image_processor
@@ -44,6 +47,18 @@ class BaseAttack:
         self.conf_thres = conf_thres
         self.result_dict = {}
         
+        self.if_output = if_output
+        self.if_save = if_save
+        self.save_dir = save_dir
+
+        
+    def save_img_pt(self, tensor):
+        if self.if_save:
+            # save the perturbed image as .pt 
+            pt_file_path = os.path.join(self.save_dir, f"img_id_{str(self.img_id)}.pt")
+            torch.save(tensor, pt_file_path)
+        else:
+            pass
             
     def generate_bx(self):
         """
@@ -152,33 +167,38 @@ class BaseAttack:
             return data
     
     def logger(self, it):
-        count = 0
-        if self.target_idx:
-            for i in self.target_idx:
-                count = count + (self.labels == i).sum().item()
-        else:
-            count = len(self.labels)
+        if self.if_output:
+            count = 0
+            if self.target_idx:
+                for i in self.target_idx:
+                    count = count + (self.labels == i).sum().item()
+            else:
+                count = len(self.labels)
 
-        tmp_dict = {
-            "count" : count,
-            "labels" : self.labels.tolist(),
-            "scores" : self.scores.tolist(),
-            "boxes" : self.boxes.tolist(),
-            "time" : self.elapsed_time
-        }
-        
-        self.result_dict[it] = tmp_dict
+            tmp_dict = {
+                "count" : count,
+                "labels" : self.labels.tolist(),
+                "scores" : self.scores.tolist(),
+                "boxes" : self.boxes.tolist(),
+                "time" : self.elapsed_time
+            }
+            
+            self.result_dict[it] = tmp_dict
+        else:
+            pass
         
             
     def write_log(self):
-        
-        os.makedirs(self.output_dir, exist_ok=True)
-        file_path = os.path.join(self.output_dir, f"img_id_{str(self.img_id)}.json")
-        with open(file_path, 'w', encoding="utf-8") as json_file:
-            json.dump(self.result_dict, json_file, indent=4)
-            
-        # reset values
-        self.result_dict = {}
+        if self.if_output:
+            os.makedirs(self.output_dir, exist_ok=True)
+            file_path = os.path.join(self.output_dir, f"img_id_{str(self.img_id)}.json")
+            with open(file_path, 'w', encoding="utf-8") as json_file:
+                json.dump(self.result_dict, json_file, indent=4)
+                
+            # reset values
+            self.result_dict = {}
+        else:
+            pass
         
         
     def parse_example(self, example):

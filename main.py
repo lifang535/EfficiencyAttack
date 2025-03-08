@@ -28,13 +28,17 @@ parser.add_argument('--algorithm', type=str, default=None, choices=["overload",
 parser.add_argument('--model_id', type=int, default=None, choices=[0,1,2], help="0: PekingU/rtdetr_r50vd, \
                                                                                  1: PekingU/rtdetr_r50vd_coco_o365, \
                                                                                  2: PekingU/rtdetr_v2_r50vd")
+parser.add_argument('--save_dir', type=str, default="../saved", help="save perturbed images")
+parser.add_argument('--if_output', type=bool, default=True, help="if output the result")
+parser.add_argument('--if_save', type=bool, default=True, help="if save the perturbed images")
 args = parser.parse_args()
 
     
 def process_batch(
         gpu_id,
         data_batch,
-        dir
+        output_dir,
+        save_dir
     ):
 
     try:
@@ -73,8 +77,11 @@ def process_batch(
             it_num = args.it_num,
             conf_thres = 0.25,
             target_idx = args.target_idx,
-            output_dir = dir,
-            device = device
+            output_dir = output_dir,
+            if_output = args.if_output,
+            device = device,
+            save_dir= save_dir,
+            if_save = args.if_save
         )
         
         for index, example in tqdm(enumerate(data_batch), total=data_batch.__len__(), desc=f"running: {args.algorithm}"):
@@ -99,10 +106,14 @@ def parallel(coco_data, num_gpus):
     else:
         target_indices = "none"
     timestamp = datetime.now().strftime("%m%d%H%M")
-    dir = os.path.join(f"{args.output_dir}", 
-                       f"model_{args.model_id}",
-                       f"{args.algorithm}_tgt_{target_indices}")
-    os.makedirs(dir, exist_ok=True)
+    output_dir = os.path.join(f"{args.output_dir}", 
+                              f"model_{args.model_id}",
+                              f"{args.algorithm}_tgt_{target_indices}")
+    save_dir = os.path.join(f"{args.save_dir}", 
+                            f"model_{args.model_id}",
+                            f"{args.algorithm}_tgt_{target_indices}")
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(save_dir, exist_ok=True)
     batch_size = len(coco_data) // num_gpus
     data_batches = [
         coco_data.select(range(i * batch_size, (i + 1) * batch_size))
@@ -120,7 +131,8 @@ def parallel(coco_data, num_gpus):
                 args=(
                     gpu_id,
                     data_batches[gpu_id],
-                    dir
+                    output_dir,
+                    save_dir
                 )
             )
             

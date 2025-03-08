@@ -1,4 +1,32 @@
-results*/
-__pycache__/
+# ignore test code
+test/
+test*/ 
+
+# cache
+.vscode/
 .DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+
+# API Key
+.env
+
+# ignore experiement results folder
+dataset/
+saved/
+results*/
+profile/
 *.tar.gz
+*.zip
+*.tar
+
+# ignore experiment results files or checkpoints
+*.ckpt
+*.pt
+*.pth
+*.log
+*.txt
+*.json

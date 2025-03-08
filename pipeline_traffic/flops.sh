@@ -1,0 +1,3 @@
+#!/bin/bash
+
+ncu --metrics smsp__sass_thread_inst_executed_op_ffma_pred_on.sum,smsp__sass_thread_inst_executed_op_fmul_pred_on.sum,smsp__sass_thread_inst_executed_op_fadd_pred_on.sum,smsp__sass_thread_inst_executed_op_hfma_pred_on.sum python traffic_app.py

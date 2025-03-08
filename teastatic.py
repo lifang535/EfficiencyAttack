@@ -26,16 +26,17 @@ class TeaStatic(BaseAttack):
         self.adam_opt = Adam([self.bx], lr=learning_rate, amsgrad=True)
         
         for it in range(self.it_num):
-            epoch_id = iter
             added_imgs = self.img_tensor + self.bx
             added_imgs.clamp_(min=0, max=1)
             self.inference(added_imgs)
             self.update_bx(it)
             self.logger(it)
+            self.save_img_pt(added_imgs)
         self.write_log()
         
         self.clean_flag = True
         torch.cuda.empty_cache()
+
 
     def update_bx(self, it_count):
         width = self.boxes[:, 2] - self.boxes[:, 0]
@@ -65,7 +66,9 @@ class TeaStatic(BaseAttack):
         self.bx.grad = self.bx.grad / (torch.norm(self.bx.grad,p=2) + 1e-20)
         self.bx.data = -1.5 * self.bx.grad+ self.bx.data
         
+        self.clone_loss(loss1, loss2, loss3, loss4)
         return self.bx
+        
         
     def cls_loss_target(self):
         target_tensor = torch.zeros_like(self.prob)
@@ -79,12 +82,40 @@ class TeaStatic(BaseAttack):
             target_tensor = self.prob.detach().clone()
         return target_tensor
 
+
     def factor_scheduler(self, it_count):
         alpha2 = 1 - math.cos(min(it_count / self.it_num * math.pi, math.pi / 2))
         alpha3 = 1 - math.cos(min(it_count / self.it_num * math.pi, math.pi / 2))
         alpha1 = 3 - alpha2 - alpha3
         return alpha1, alpha2, alpha3
-                
+             
+             
+    def clone_loss(self, loss1, loss2, loss3, loss4):
+        self._loss1 = loss1.detach().clone().cpu().item()
+        self._loss2 = loss2.detach().clone().cpu().item()
+        self._loss3 = loss3.detach().clone().cpu().item()
+        self._loss4 = loss4.detach().clone().cpu().item()   
+        
+        
+    def logger(self, it):
+        count = 0
+        if self.target_idx:
+            for i in self.target_idx:
+                count = count + (self.labels == i).sum().item()
+        else:
+            count = len(self.labels)
+        
+        tmp_dict = {
+            "count" : count,
+            "labels" : self.labels.tolist(),
+            "scores" : self.scores.tolist(),
+            "boxes" : self.boxes.tolist(),
+            "time" : self.elapsed_time,
+            "loss": [self._loss1, self._loss2, self._loss3, self._loss4]
+            
+        }
+        
+        self.result_dict[it] = tmp_dict
                 
 def single_test(num_q = 1000, 
                 img_id = 0, 

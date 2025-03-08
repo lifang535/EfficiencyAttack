@@ -64,6 +64,7 @@ class Phantom(BaseAttack):
 
             self.inference(applied_patch)
             self.logger(it)
+            self.save_img_pt(applied_patch)
         self.write_log()
         
         self.clean_flag = True

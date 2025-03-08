@@ -42,6 +42,7 @@ class Overload(BaseAttack):
                                                added_img.shape[2]).to(self.device)
             self.update_bx()
             self.logger(it)
+            self.save_img_pt(added_img)
         self.write_log()
         
         self.clean_flag = True
