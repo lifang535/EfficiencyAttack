@@ -105,9 +105,11 @@ class lprStream(Process):
                     if data is None:
                         logger.info("Received end signal")
                         break
-                    if isinstance(data, str) and data == "END OF FRAME":
-                        self.lpr2kr_queue.put("END OF FRAME")
-                        continue
+                    
+                    # legacy code
+                    # if isinstance(data, str) and data == "END OF FRAME":
+                    #     self.lpr2kr_queue.put("END OF FRAME")
+                    #     continue
                     
                     # Convert numpy array back to tensor and move to GPU
                     request = torch.from_numpy(data).to(self.device)

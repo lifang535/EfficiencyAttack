@@ -85,66 +85,121 @@ class krStream(Process):
             self.model.eval()
             logger.info("KR Model loaded and ready")
             
-            fr_data_list = []
-            lpr_data_list = []
+            # legacy code
+            # fr_data_list = []
+            # lpr_data_list = []
             fr_end_received = False
             lpr_end_received = False
             
             while not self.stop_event.is_set():
-                try:
-                    # Check if both upstream processes have terminated
-                    if fr_end_received and lpr_end_received:
-                        logger.info("Both FR and LPR streams have ended, terminating KR stream")
-                        break
+                # try:
+                    # # Check if both upstream processes have terminated
+                    # if fr_end_received and lpr_end_received:
+                    #     logger.info("Both FR and LPR streams have ended, terminating KR stream")
+                    #     break
                         
-                    # Process FR data
-                    try:
-                        fr_data = self.fr2kr_queue.get(timeout=1.0)
-                        if fr_data is None:
+                    # # Process FR data
+                    # try:
+                    #     fr_data = self.fr2kr_queue.get(timeout=1.0)
+                    #     if fr_data is None:
+                    #         fr_end_received = True
+                    #         logger.info("Received end signal from FR stream")
+                    #     # legacy code
+                    #     # elif isinstance(fr_data, str) and fr_data == "END OF FRAME":
+                    #     #     pass  # Process frame boundary
+                    #     else:
+                    #         fr_data_list.append(fr_data)
+                    # except Empty:
+                    #     pass
+                        
+                    # # Process LPR data
+                    # try:
+                    #     lpr_data = self.lpr2kr_queue.get(timeout=1.0)
+                    #     if lpr_data is None:
+                    #         lpr_end_received = True
+                    #         logger.info("Received end signal from LPR stream")
+                    #     # legacy code
+                    #     # elif isinstance(lpr_data, str) and lpr_data == "END OF FRAME":
+                    #     #     pass  # Process frame boundary
+                    #     else:
+                    #         lpr_data_list.append(lpr_data)
+                    # except Empty:
+                    #     pass
+                        
+     
+                #     # Process accumulated data if we have both LPR and FR data
+                #     if fr_data_list and lpr_data_list:
+                #         prompt = "".join(fr_data_list + lpr_data_list)
+                        
+                #         with torch.no_grad():
+                #             encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+                #             generated_ids = self.model.generate(**encoded_input, 
+                #                                                 max_new_tokens=50, 
+                #                                                 do_sample=True,
+                #                                                 pad_token_id=self.tokenizer.eos_token_id)
+                #             decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+                        
+                #         self.kr2lm_queue.put(decoded_text)
+                        
+                #         del prompt, encoded_input, generated_ids, decoded_text
+                #         fr_data_list = []
+                #         lpr_data_list = []
+                #         torch.cuda.empty_cache()
+                    
+                # except Exception as e:
+                #     logger.error(f"Error in KR stream processing: {str(e)}", exc_info=True)
+            
+            
+                try:
+                    if self.fr2kr_queue.empty() and self.lpr2kr_queue.empty():
+                        continue
+                    
+                    elif not fr_end_received and not lpr_end_received:
+                        break
+                    
+                    elif not fr_end_received and not self.fr2kr_queue.empty():
+                        data = self.fr2kr_queue.get(timeout=2.0)
+                        if data is None:
                             fr_end_received = True
                             logger.info("Received end signal from FR stream")
-                        elif isinstance(fr_data, str) and fr_data == "END OF FRAME":
-                            pass  # Process frame boundary
                         else:
-                            fr_data_list.append(fr_data)
-                    except Empty:
-                        pass
+                            with torch.no_grad():
+                                pass
                         
-                    # Process LPR data
-                    try:
-                        lpr_data = self.lpr2kr_queue.get(timeout=1.0)
-                        if lpr_data is None:
+                    elif not lpr_end_received and not self.lpr2kr_queue.empty():
+                        data = self.lpr2kr_queue.get(timeout=2.0)
+                        if data is None:
                             lpr_end_received = True
                             logger.info("Received end signal from LPR stream")
-                        elif isinstance(lpr_data, str) and lpr_data == "END OF FRAME":
-                            pass  # Process frame boundary
                         else:
-                            lpr_data_list.append(lpr_data)
-                    except Empty:
-                        pass
+                            with torch.no_grad():
+                                prompt = f"The OCR system read a vehicle license plate as {data}, \
+                                    but OCR errors might have occurred due to character confusion \
+                                    (such as \"8\" ↔ \"B\", \"2\" ↔ \"Z\", \"5\" ↔ \"S\"). List 5 \
+                                    alternative license plate numbers that closely resemble \
+                                    {data} and could correct possible OCR errors:"
+                                encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+                                generated_ids = self.model.generate(**encoded_input, 
+                                                                    max_new_tokens=50, 
+                                                                    do_sample=True,
+                                                                    pad_token_id=self.tokenizer.eos_token_id)
+                                decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+                                self.kr2lm_queue.put(decoded_text)
+                                # pass
+                                del prompt, encoded_input, generated_ids, decoded_text
+                                torch.cuda.empty_cache()
                         
-                    # Process accumulated data if we have both LPR and FR data
-                    if fr_data_list and lpr_data_list:
-                        prompt = "".join(fr_data_list + lpr_data_list)
-                        
-                        with torch.no_grad():
-                            encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-                            generated_ids = self.model.generate(**encoded_input, 
-                                                                max_new_tokens=50, 
-                                                                do_sample=True,
-                                                                pad_token_id=self.tokenizer.eos_token_id)
-                            decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
-                        
-                        self.kr2lm_queue.put(decoded_text)
-                        
-                        del prompt, encoded_input, generated_ids, decoded_text
-                        fr_data_list = []
-                        lpr_data_list = []
-                        torch.cuda.empty_cache()
+                    else:
+                        logger.info("Both FR and LPR streams have ended, terminating KR stream")
                     
+                    
+                except Empty:
+                    logger.debug("FR and LPR streams are idle, checking if should continue")
+                    continue
                 except Exception as e:
-                    logger.error(f"Error in KR stream processing: {str(e)}", exc_info=True)
-            
+                    logger.error(f"Error processing FR and LPR streams: {str(e)}", exc_info=True)
+                    
+                    
             # Signal end to LM stream
             logger.info("KR stream sending end signal to LM stream")
             self.kr2lm_queue.put(None)

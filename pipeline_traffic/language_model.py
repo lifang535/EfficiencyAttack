@@ -1,12 +1,12 @@
 """
 
-                                  ___ face recognition _________
-                                 /                              \______ knowledge ___
-                                /                               /       retrieval    \ 
-data ----- object detection ---|----- license plate recognition                       \     
-                                \                                                      |--- language model
-                                 \                                                    /
-                                  \___ image captioning _____________________________/
+                                  ____________ face recognition ________
+                                 /                                      \______ knowledge 
+                                /                                       /       retrieval    
+data ----- object detection ---|----- license plate segmentation --- ocr             \ 
+                                \                                                    |--- language model
+                                 \                                                   /
+                                  \___ image captioning ____________________________/
 
 
 object detection:
@@ -133,7 +133,7 @@ class lmStream(Process):
                             decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
                             
                             # self.grok_chat_completion(prompt, stream=False, temperature=0, max_tokens=50)
-                            logger.info(f"Generated output: {decoded_text[:50]}...")
+                            # logger.info(f"Generated output: {decoded_text[:50]}...")
                         
                         del prompt, encoded_input, generated_ids, decoded_text
                         torch.cuda.empty_cache()

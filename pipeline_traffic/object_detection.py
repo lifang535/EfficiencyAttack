@@ -133,7 +133,8 @@ class odStream(Process):
                     else:
                         self.od2fr_queue.put(request.cpu().numpy())
                         
-                    self.od2fr_queue.put("END OF FRAME")
+                    # legacy code
+                    # self.od2fr_queue.put("END OF FRAME")
                     """
                     ===============================================================================
                     from all bounding boxes, select ONLY "car" boxes for license plate recognition
@@ -152,7 +153,8 @@ class odStream(Process):
                     else:
                         self.od2lpr_queue.put(request.cpu().numpy())
                         
-                    self.od2lpr_queue.put("END OF FRAME")
+                    # legacy code
+                    # self.od2lpr_queue.put("END OF FRAME")
                     
                     """
                     ===============================================================================
