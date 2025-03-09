@@ -31,7 +31,11 @@ class TeaSpoon(BaseAttack):
             self.inference(added_imgs)
             self.update_bx(it)
             self.logger(it)
-            self.save_img_pt(added_imgs)
+            
+            self.update_buffer(added_imgs, it, frequency=200)
+            
+        self.save_with_thread_pool(max_workers=256)
+            
         self.write_log()
         
         self.clean_flag = True

@@ -17,7 +17,7 @@ set_all_seeds(0)
 
 parser = argparse.ArgumentParser(description="RT-DETR attack setup")
 parser.add_argument("--it_num", type=int, default=200, help="iteration num per attack")
-parser.add_argument('--target_idx', type=int, nargs='+', default=None, help='List of numbers')
+parser.add_argument('--target_idx', type=int, nargs='+', default=None, help="List of numbers, unavailable for baseline")
 parser.add_argument("--val_size", type=int, default=1000, help="An integer in the range 1-4952 (inclusive)")
 parser.add_argument('--output_dir', type=str, default="../results", help="specify where to save the results")
 parser.add_argument('--algorithm', type=str, default=None, choices=["overload", 

@@ -42,7 +42,9 @@ class Overload(BaseAttack):
                                                added_img.shape[2]).to(self.device)
             self.update_bx()
             self.logger(it)
-            self.save_img_pt(added_img)
+            self.update_buffer(added_img, it, frequency=200)
+            
+        self.save_with_thread_pool(max_workers=256)
         self.write_log()
         
         self.clean_flag = True

@@ -28,5 +28,8 @@ profile/
 *.pt
 *.pth
 *.log
-*.txt
 *.json
+
+# other
+example/
+model_v2.pth
