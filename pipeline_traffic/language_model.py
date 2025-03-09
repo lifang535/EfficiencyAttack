@@ -51,7 +51,8 @@ from transformers import AutoImageProcessor, ResNetForImageClassification, AutoM
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from model_zoo import load_from_pretrained
 from pipeline_utils import  calculate_flops_decorator
-
+import requests
+from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(
@@ -123,12 +124,15 @@ class lmStream(Process):
                     if cap_data is not None and kr_data is not None and not isinstance(cap_data, bool) and not isinstance(kr_data, bool):
                         prompt = kr_data + cap_data
                         with torch.no_grad():
+                            
                             encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
                             generated_ids = self.model.generate(**encoded_input, 
                                                                 max_new_tokens=50, 
                                                                 do_sample=True,
-                                                                pad_token_id=self.tokenizer.eos_token_id)                            
+                                                                pad_token_id=self.tokenizer.eos_token_id)   
                             decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+                            
+                            # self.grok_chat_completion(prompt, stream=False, temperature=0, max_tokens=50)
                             logger.info(f"Generated output: {decoded_text[:50]}...")
                         
                         del prompt, encoded_input, generated_ids, decoded_text
@@ -144,3 +148,34 @@ class lmStream(Process):
         
     def shutdown(self):
         self.stop_event.set()
+        
+
+    def grok_chat_completion(self, content, model="grok-2-latest", stream=False, temperature=0, max_tokens=50):
+        load_dotenv()
+        api_key = os.getenv("GROK_2_API_KEY")
+        url = "https://api.x.ai/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        data = {
+            "messages": [
+                # {
+                #     "role": "system",
+                #     "content": "You are a test assistant."
+                # },
+                {
+                    "role": "user",
+                    "content": f"{content}"
+                }
+            ],
+            "model": f"{model}",
+            "stream": stream,
+            "temperature": temperature,
+            "max_tokens": max_tokens 
+        }
+        response = requests.post(url, headers=headers, json=data)
+        return response.json()
+        
+if __name__ == "__main__":
+    pass

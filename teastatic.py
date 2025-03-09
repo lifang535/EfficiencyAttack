@@ -134,7 +134,7 @@ def single_test(num_q = 1000,
     for i in range(3):
         model, image_processor = load_from_pretrained(i, device)
         model.config.num_queries = num_q
-        teaspoon = StaticTea(
+        teaspoon = TeaStatic(
             model = model,
             image_processor = image_processor,
             it_num = 100,
