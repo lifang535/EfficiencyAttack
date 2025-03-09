@@ -34,3 +34,6 @@ profile/
 # other
 example/
 model_v2.pth
+
+# exception
+!pipeline_traffic/face_embeddings/.gitkeep
