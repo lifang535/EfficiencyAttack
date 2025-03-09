@@ -50,9 +50,10 @@ conda activate teapipe
 ```sh
 cd pipeline_traffic
 pip install pipeline_requirements.txt
+python embed_face.py # prepare a demo dataset for the pipeline
 ```
 
 ```sh
 alias python=python3 # if necessary
-python traffic.py --model_id 0 --algorithm teaspoon
+python traffic.py --model_id <id> --algorithm <a>
 ```
