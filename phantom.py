@@ -64,7 +64,7 @@ class Phantom(BaseAttack):
 
             self.inference(applied_patch)
             self.logger(it)
-            self.update_buffer(applied_patch, it, frequency=200)
+            self.update_buffer(applied_patch, it)
             
         self.save_with_thread_pool(max_workers=256)
         self.write_log()

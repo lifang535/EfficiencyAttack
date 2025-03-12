@@ -6,7 +6,9 @@ import time
 import torch
 import numpy as np
 import sys
+from pathlib import Path
 sys.path.append("../")
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 import functools
 import os
 import datetime
@@ -21,10 +23,9 @@ from tabulate import tabulate
 
 load_dotenv()
 SESSION_ID = os.getenv("SESSION_ID")
-# import traffic
 
 # SESSION_ID = traffic.SESSION_ID
-LOG_DIR = f"profile/{SESSION_ID}"
+LOG_DIR = f"../../profile/{SESSION_ID}"
 
 os.makedirs(LOG_DIR, exist_ok=True)
 # Configure logging

@@ -80,7 +80,7 @@ class SlowTrack(BaseAttack):
             self.bx = self.update_bx(strategy[it], max_tracker_num)
             # import pdb; pdb.set_trace()
             self.logger(it)
-            self.update_buffer(added_img, it, frequency=200)
+            self.update_buffer(added_img, it)
             
         self.save_with_thread_pool(max_workers=256)
         self.write_log()

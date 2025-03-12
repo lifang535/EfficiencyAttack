@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.780235  0.399651  0.536823        0.266235            0.272140
+loss_2              0.780235  1.000000  0.317376  0.710630        0.317266            0.349363
+loss_3              0.399651  0.317376  1.000000  0.103367        0.060085            0.083525
+loss_4              0.536823  0.710630  0.103367  1.000000        0.423395            0.461558
+targeted_count      0.266235  0.317266  0.060085  0.423395        1.000000            0.918359
+targeted_count_log  0.272140  0.349363  0.083525  0.461558        0.918359            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.266235
+loss_2    0.317266
+loss_3    0.060085
+loss_4    0.423395
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.272140
+loss_2    0.349363
+loss_3    0.083525
+loss_4    0.461558
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.629374  0.444389  0.375112        0.240620            0.240620
+loss_2              0.629374  1.000000  0.346160  0.574618        0.200051            0.200051
+loss_3              0.444389  0.346160  1.000000  0.165634        0.104290            0.104290
+loss_4              0.375112  0.574618  0.165634  1.000000        0.363320            0.363320
+targeted_count      0.240620  0.200051  0.104290  0.363320        1.000000            1.000000
+targeted_count_log  0.240620  0.200051  0.104290  0.363320        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.240620
+loss_2    0.200051
+loss_3    0.104290
+loss_4    0.363320
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.1693887082516266, p-value=0.0

@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.106950  0.219183  0.028444        0.291414            0.265171
+loss_2              0.106950  1.000000 -0.001754  0.676888        0.034112            0.163950
+loss_3              0.219183 -0.001754  1.000000 -0.033672       -0.224372           -0.214189
+loss_4              0.028444  0.676888 -0.033672  1.000000        0.125310            0.306367
+targeted_count      0.291414  0.034112 -0.224372  0.125310        1.000000            0.871614
+targeted_count_log  0.265171  0.163950 -0.214189  0.306367        0.871614            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.291414
+loss_2    0.034112
+loss_3   -0.224372
+loss_4    0.125310
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.265171
+loss_2    0.163950
+loss_3   -0.214189
+loss_4    0.306367
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000 -0.213798  0.208666 -0.241200        0.262473            0.262473
+loss_2             -0.213798  1.000000  0.096432  0.480599       -0.091108           -0.091108
+loss_3              0.208666  0.096432  1.000000  0.057431       -0.285240           -0.285240
+loss_4             -0.241200  0.480599  0.057431  1.000000        0.117668            0.117668
+targeted_count      0.262473 -0.091108 -0.285240  0.117668        1.000000            1.000000
+targeted_count_log  0.262473 -0.091108 -0.285240  0.117668        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.262473
+loss_2   -0.091108
+loss_3   -0.285240
+loss_4    0.117668
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.186745004520541, p-value=0.0

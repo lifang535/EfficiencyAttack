@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.155636  0.212101  0.078683        0.340529            0.330956
+loss_2              0.155636  1.000000  0.023844  0.633072        0.025407            0.178278
+loss_3              0.212101  0.023844  1.000000  0.000537       -0.192184           -0.189972
+loss_4              0.078683  0.633072  0.000537  1.000000        0.042016            0.208569
+targeted_count      0.340529  0.025407 -0.192184  0.042016        1.000000            0.876344
+targeted_count_log  0.330956  0.178278 -0.189972  0.208569        0.876344            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.340529
+loss_2    0.025407
+loss_3   -0.192184
+loss_4    0.042016
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.330956
+loss_2    0.178278
+loss_3   -0.189972
+loss_4    0.208569
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000 -0.193285  0.204370 -0.188396        0.313943            0.313943
+loss_2             -0.193285  1.000000  0.112746  0.554486       -0.076912           -0.076912
+loss_3              0.204370  0.112746  1.000000  0.113333       -0.244971           -0.244971
+loss_4             -0.188396  0.554486  0.113333  1.000000        0.017107            0.017107
+targeted_count      0.313943 -0.076912 -0.244971  0.017107        1.000000            1.000000
+targeted_count_log  0.313943 -0.076912 -0.244971  0.017107        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.313943
+loss_2   -0.076912
+loss_3   -0.244971
+loss_4    0.017107
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.22312968775199005, p-value=0.0

@@ -16,30 +16,30 @@ import time
 import torch
 import numpy as np
 import sys
+from pathlib import Path
 sys.path.append("../")
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 import os
 from tqdm import tqdm
 import logging
 from transformers import AutoImageProcessor, ResNetForImageClassification, AutoModelForImageClassification
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from model_zoo import load_from_pretrained
-
+from dotenv import load_dotenv, set_key, dotenv_values
 import argparse
+
 parser = argparse.ArgumentParser(description="Traffic pipeline")
-parser.add_argument("--model_id", type=int, default=None)
-parser.add_argument("--algorithm", type=str, default=None)
-parser.add_argument("--data_path", type=str, default="./sample_data")
+parser.add_argument("--model_id", type=int, required=True)
+parser.add_argument("--algorithm", type=str, required=True)
+parser.add_argument("--target_idx", type=int, default=None)
 args = parser.parse_args()
 
-if args.algorithm or args.model_id:
-    pass
-else:
-    raise ValueError("Please specify an algorithm and a model id")
+data_path = f"../saved/model_{args.model_id}/{args.algorithm}_tgt_{str(args.target_idx).lower()}"
 
-from dotenv import load_dotenv, set_key, dotenv_values
 dotenv_path = ".env"  
 load_dotenv(dotenv_path)
-set_key(dotenv_path, "SESSION_ID", f"{args.model_id}_{args.algorithm}")
+set_key(dotenv_path, "SESSION_ID", f"model_{args.model_id}/{args.algorithm}_tgt_{str(args.target_idx)}")
 
 
 # Configure logging
@@ -51,6 +51,18 @@ logger = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":
+    date_time = time.strftime("%Y-%m-%d %H:%M:%S")
+    print("\n"*2 + "="*80)
+    print("|" + " "*78 + "|")
+    print("|" + " "*78 + "|")
+    print("|" + " "*21 + "Running: Traffic Monitoring Pipeline" + " "*21 + "|")
+    print("|" + " "*78 + "|")
+    print("|" + " "*78 + "|")
+    print("|" + " "*30 + date_time + " "*29 + "|")
+    print("|" + " "*78 + "|")
+    print("|" + " "*78 + "|")
+    print("="*80 + "\n"*2)
+    
     
     torch.cuda.empty_cache()
     
@@ -74,7 +86,7 @@ if __name__ == "__main__":
     kr_stream = krStream(fr2kr, lpr2kr, kr2lm, device)
     lm_stream = lmStream(cap2lm, kr2lm, device)
     
-    img_stream.set_config(folder_path=args.data_path, fps=30)
+    img_stream.set_config(folder_path=data_path, fps=30)
     od_stream.set_config(model_id=args.model_id)
     fr_stream.set_config(model_id="vggface2") # microsoft/resnet-101
     lpr_stream.set_config(model_id="./pytorch-licenseplate-segmentation/model_v2.pth")

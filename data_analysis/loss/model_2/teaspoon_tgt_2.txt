@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.048910  0.199437 -0.031262        0.336951            0.286124
+loss_2              0.048910  1.000000 -0.019872  0.403454        0.025353            0.155336
+loss_3              0.199437 -0.019872  1.000000  0.192229       -0.207020           -0.250731
+loss_4             -0.031262  0.403454  0.192229  1.000000       -0.261867           -0.155787
+targeted_count      0.336951  0.025353 -0.207020 -0.261867        1.000000            0.878004
+targeted_count_log  0.286124  0.155336 -0.250731 -0.155787        0.878004            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.336951
+loss_2    0.025353
+loss_3   -0.207020
+loss_4   -0.261867
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.286124
+loss_2    0.155336
+loss_3   -0.250731
+loss_4   -0.155787
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000 -0.244729  0.174066 -0.133597        0.318014            0.318014
+loss_2             -0.244729  1.000000  0.105042  0.369485       -0.106129           -0.106129
+loss_3              0.174066  0.105042  1.000000  0.347103       -0.283466           -0.283466
+loss_4             -0.133597  0.369485  0.347103  1.000000       -0.320601           -0.320601
+targeted_count      0.318014 -0.106129 -0.283466 -0.320601        1.000000            1.000000
+targeted_count_log  0.318014 -0.106129 -0.283466 -0.320601        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.318014
+loss_2   -0.106129
+loss_3   -0.283466
+loss_4   -0.320601
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.22658580305167933, p-value=0.0

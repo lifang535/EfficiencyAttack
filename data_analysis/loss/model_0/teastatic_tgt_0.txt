@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.848087  0.469048  0.642676        0.180747            0.145426
+loss_2              0.848087  1.000000  0.404478  0.702082        0.201018            0.190807
+loss_3              0.469048  0.404478  1.000000  0.289311       -0.027315           -0.044819
+loss_4              0.642676  0.702082  0.289311  1.000000       -0.239873           -0.242610
+targeted_count      0.180747  0.201018 -0.027315 -0.239873        1.000000            0.903537
+targeted_count_log  0.145426  0.190807 -0.044819 -0.242610        0.903537            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.180747
+loss_2    0.201018
+loss_3   -0.027315
+loss_4   -0.239873
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.145426
+loss_2    0.190807
+loss_3   -0.044819
+loss_4   -0.242610
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.809728  0.540267  0.583673        0.201167            0.201167
+loss_2              0.809728  1.000000  0.486508  0.664124        0.156002            0.156002
+loss_3              0.540267  0.486508  1.000000  0.403761        0.013720            0.013720
+loss_4              0.583673  0.664124  0.403761  1.000000       -0.243217           -0.243217
+targeted_count      0.201167  0.156002  0.013720 -0.243217        1.000000            1.000000
+targeted_count_log  0.201167  0.156002  0.013720 -0.243217        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.201167
+loss_2    0.156002
+loss_3    0.013720
+loss_4   -0.243217
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.14054093332429654, p-value=0.0

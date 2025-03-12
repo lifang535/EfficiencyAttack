@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.041826  0.203058 -0.083982        0.311294            0.246249
+loss_2              0.041826  1.000000 -0.035741  0.387279       -0.008119            0.107794
+loss_3              0.203058 -0.035741  1.000000  0.263623       -0.208515           -0.272073
+loss_4             -0.083982  0.387279  0.263623  1.000000       -0.631797           -0.528153
+targeted_count      0.311294 -0.008119 -0.208515 -0.631797        1.000000            0.851633
+targeted_count_log  0.246249  0.107794 -0.272073 -0.528153        0.851633            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.311294
+loss_2   -0.008119
+loss_3   -0.208515
+loss_4   -0.631797
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.246249
+loss_2    0.107794
+loss_3   -0.272073
+loss_4   -0.528153
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000 -0.250865  0.162321 -0.149035        0.309314            0.309314
+loss_2             -0.250865  1.000000  0.098092  0.365365       -0.134867           -0.134867
+loss_3              0.162321  0.098092  1.000000  0.424818       -0.306487           -0.306487
+loss_4             -0.149035  0.365365  0.424818  1.000000       -0.677212           -0.677212
+targeted_count      0.309314 -0.134867 -0.306487 -0.677212        1.000000            1.000000
+targeted_count_log  0.309314 -0.134867 -0.306487 -0.677212        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.309314
+loss_2   -0.134867
+loss_3   -0.306487
+loss_4   -0.677212
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.21935783720412064, p-value=0.0

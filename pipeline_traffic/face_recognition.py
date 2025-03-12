@@ -1,47 +1,3 @@
-"""
-
-                                  ____________ face recognition ________
-                                 /                                      \______ knowledge 
-                                /                                       /       retrieval    
-data ----- object detection ---|----- license plate segmentation --- ocr             \ 
-                                \                                                    |--- language model
-                                 \                                                   /
-                                  \___ image captioning ____________________________/
-
-
-object detection:
-    - YOLO or Vision Transformer
-    - Input: PIL Image
-    - Output: (box, cls, scores)
-    
-face recognition:
-    - FaceNet
-    - Input: bounding boxes which has a cls label == "person"
-    - Output: 
-    
-license plate recognition:
-    - DeepLab V3
-    - Input: bounding boxes which has a cls label == "car"
-    - Output:
-    
-image captioning:
-    - huggingface "microsoft/git-base"
-    - Input: bounding boxes which has a cls label == ["person", "car", "traffic lights", "stop sign"]
-    - Output:
-        
-knowledge retrieval:
-    - GPT 2 (to simulate a database)
-    - Input: query
-    - Output: knowledge
-    
-language model:
-    - GPT 2/Grok 2 (now offer two choices)
-    - Input: prompt
-    - Output: text
-    
-"""
-
-
 from multiprocessing import Process, Queue, Event
 from queue import Empty
 import multiprocessing as mp
@@ -50,7 +6,9 @@ import time
 import torch
 import numpy as np
 import sys
+from pathlib import Path
 sys.path.append("../")
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 import os
 from tqdm import tqdm
 import logging
@@ -58,11 +16,12 @@ from transformers import AutoImageProcessor, ResNetForImageClassification, AutoM
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from model_zoo import load_from_pretrained
 from pipeline_utils import  calculate_flops_decorator
-from pipeline_utils import calculate_flops_decorator
 from torchvision import transforms
 from facenet_pytorch import MTCNN, InceptionResnetV1 # https://github.com/timesler/facenet-pytorch/tree/master
 from PIL import Image
 import cv2
+import torch.nn.functional as F
+
 
 # Configure logging
 logging.basicConfig(
@@ -138,6 +97,7 @@ class frStream(Process):
                     
                     # Convert numpy array back to tensor and move to GPU
                     request = torch.from_numpy(data).to(self.device)
+                    request = self.facenet_padding(request)
                     # request = request.unsqueeze(0)  # Add batch dimension
                     
                     with torch.no_grad():
@@ -214,3 +174,37 @@ class frStream(Process):
                 best_match = name
         
         return best_match, best_similarity
+    
+    def facenet_padding(self, image, min_size=160):
+
+        
+        # Get current dimensions
+        if image.dim() == 4:
+            image = image.squeeze(0)
+            
+        _, height, width = image.shape
+        
+        # Check if padding is needed
+        if height < min_size or width < min_size:
+            # Calculate padding
+            pad_height = max(0, min_size - height)
+            pad_width = max(0, min_size - width)
+            
+            # Calculate padding for each side
+            pad_top = pad_height // 2
+            pad_bottom = pad_height - pad_top
+            pad_left = pad_width // 2
+            pad_right = pad_width - pad_left
+            
+            # Apply padding
+            image = F.pad(image.unsqueeze(0), 
+                        (pad_left, pad_right, pad_top, pad_bottom), 
+                        mode='constant', value=0)
+            image = image.squeeze(0)
+        
+        
+        # Add batch dimension if needed
+        if image.dim() == 3:
+            image = image.unsqueeze(0)
+        
+        return image

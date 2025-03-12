@@ -1,40 +1,3 @@
-"""
-
-                                  ___ face recognition _________
-                                 /                              \______ knowledge ___
-                                /                               /       retrieval    \ 
-data ----- object detection ---|----- license plate recognition                       \     
-                                \                                                      |--- language model
-                                 \                                                    /
-                                  \___ image captioning _____________________________/
-
-
-object detection:
-    - YOLO or Vision Transformer
-    - Input: PIL Image
-    - Output: (box, cls, scores)
-    
-face recognition:
-    - ResNet 101
-    - Input: bounding boxes which has a cls label == "person"
-    - Output: 
-    
-license plate recognition:
-    - ResNet 18
-    - Input: bounding boxes which has a cls label == "car"
-    - Output:
-    
-image captioning:
-    - ResNet 101
-    - Input: bounding boxes which has a cls label == ["person", "car", "traffic lights", "stop sign"]
-    - Output:
-        
-language model:
-    - GPT 2
-    
-"""
-
-
 from multiprocessing import Process, Queue, Event
 from queue import Empty
 import multiprocessing as mp
@@ -43,7 +6,9 @@ import time
 import torch
 import numpy as np
 import sys
+from pathlib import Path
 sys.path.append("../")
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 import os
 from tqdm import tqdm
 import logging
@@ -51,7 +16,7 @@ from transformers import AutoImageProcessor, ResNetForImageClassification, AutoM
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from model_zoo import load_from_pretrained
 from pipeline_utils import  calculate_flops_decorator
-
+import pickle
 
 # Configure logging
 logging.basicConfig(
@@ -91,11 +56,10 @@ class imgStream(Process):
                 if self.stop_event.is_set():
                     break
                     
-                # Load image to device memory
-                image_tensor = torch.load(p, weights_only=True, map_location=self.device)
-                
-                # Convert to numpy array (safer for multiprocessing)
-                numpy_array = image_tensor.cpu().numpy()
+                # image_tensor = torch.load(p, weights_only=False, pickle_module=pickle, map_location=self.device)
+                # numpy_array = image_tensor.cpu().numpy()
+
+                numpy_array = self.ultra_fast_load(p, device=self.device)
                 
                 # Send numpy array through queue
                 self.img2od_queue.put(numpy_array)
@@ -104,7 +68,7 @@ class imgStream(Process):
                 time.sleep(1.0 / self.fps)
                 
                 # Clean up
-                del image_tensor, numpy_array
+                del numpy_array
                 torch.cuda.empty_cache()
             
             # Signal end of stream
@@ -119,3 +83,91 @@ class imgStream(Process):
     
     def shutdown(self):
         self.stop_event.set()
+        
+    def ultra_fast_load(self, filepath, device=None):
+        with open(filepath, 'rb') as f:
+            # Read shape dimensions
+            shape_bytes = f.read(24)  # Assuming at most 3 dimensions
+            shape = np.frombuffer(shape_bytes, dtype=np.int64)
+            # Filter out any zeros in the shape
+            shape = shape[shape > 0]
+            
+            # Read dtype (1 byte)
+            dtype_num = np.frombuffer(f.read(1), dtype=np.int8)[0]
+            
+            # Map numpy dtype number to torch dtype and corresponding numpy dtype
+            dtype_map = {
+                1: (torch.float32, np.float32),  # np.float32
+                2: (torch.float64, np.float64),  # np.float64
+                3: (torch.complex64, np.complex64),  # np.complex64
+                4: (torch.complex128, np.complex128),  # np.complex128
+                5: (torch.int8, np.int8),  # np.int8
+                6: (torch.int16, np.int16),  # np.int16
+                7: (torch.int32, np.int32),  # np.int32
+                8: (torch.int64, np.int64),  # np.int64
+                9: (torch.uint8, np.uint8),  # np.uint8
+                # Add more mappings as needed
+            }
+            
+            torch_dtype, numpy_dtype = dtype_map.get(dtype_num, (torch.float32, np.float32))
+            
+            # Read tensor data
+            tensor_data = f.read()
+            
+            # Convert to numpy array then torch tensor
+            np_array = np.frombuffer(tensor_data, dtype=numpy_dtype).reshape(shape)
+            tensor = torch.from_numpy(np_array)
+            
+            # Move to device if specified
+            if device is not None:
+                tensor = tensor.to(device)
+                
+            return tensor
+
+    def ultra_fast_load(self, filepath, device=None):
+        with open(filepath, 'rb') as f:
+            fd = f.fileno()
+            try:
+                shape_dims = int(np.frombuffer(os.read(fd, 1), dtype=np.int8)[0])
+                shape = tuple(np.frombuffer(os.read(fd, shape_dims * 8), dtype=np.int64))
+                dtype_length = int(np.frombuffer(os.read(fd, 1), dtype=np.int8)[0])
+                dtype_str = os.read(fd, dtype_length).decode('ascii')
+
+                data = os.read(fd, os.path.getsize(fd) - (1 + shape_dims * 8 + 1 + dtype_length))
+                tensor = np.frombuffer(data, dtype=np.dtype(dtype_str)).reshape(shape)
+                return tensor
+                return torch.from_numpy(tensor).clone().to(device)
+
+            except Exception as e:
+                print(f"Failed to load tensor from {filepath}: {e}")
+                return None
+
+def ultra_fast_load(filepath):
+    with open(filepath, 'rb') as f:
+        fd = f.fileno()
+        try:
+            shape_dims = int(np.frombuffer(os.read(fd, 1), dtype=np.int8)[0])
+            shape = tuple(np.frombuffer(os.read(fd, shape_dims * 8), dtype=np.int64))
+            dtype_length = int(np.frombuffer(os.read(fd, 1), dtype=np.int8)[0])
+            dtype_str = os.read(fd, dtype_length).decode('ascii')
+
+            data = os.read(fd, os.path.getsize(fd) - (1 + shape_dims * 8 + 1 + dtype_length))
+            tensor = np.frombuffer(data, dtype=np.dtype(dtype_str)).reshape(shape)
+            return torch.from_numpy(tensor)
+        except Exception as e:
+            print(f"Failed to load tensor from {filepath}: {e}")
+            return None
+            
+if __name__ == "__main__":
+    model_id = 0
+    algorithm = "teastatic"
+    target_idx = 68
+    data_path = f"../saved/model_{model_id}/{algorithm}_tgt_{str(target_idx).lower()}"
+    print(data_path)
+    paths = sorted(glob.glob(f"{data_path}/*.pt"))
+    
+    print(f"Found {len(paths)} image files")
+    
+    p = paths[0]
+    
+    image_tensor = ultra_fast_load(p)

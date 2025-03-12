@@ -18,6 +18,8 @@ class Overload(BaseAttack):
         mask = torch.ones(y_shape,x_shape)      
         x_len = int(x_shape / mask_x)
         y_len = int(y_shape / mask_y)
+        
+
         if self.boxes is not None:
             # (top_left_x, top_left_y, bottom_right_x, bottom_right_y) 
             for i in range(len(self.boxes)):
@@ -32,6 +34,7 @@ class Overload(BaseAttack):
     def run_attack(self, image, img_id):
         self.init_input(image, img_id)
         self.generate_bx()
+            
         for it in range(self.it_num):
             added_img = self.img_tensor + self.bx
             added_img.clamp_(min=0, max=1)
@@ -42,7 +45,7 @@ class Overload(BaseAttack):
                                                added_img.shape[2]).to(self.device)
             self.update_bx()
             self.logger(it)
-            self.update_buffer(added_img, it, frequency=200)
+            self.update_buffer(added_img, it)
             
         self.save_with_thread_pool(max_workers=256)
         self.write_log()

@@ -31,6 +31,7 @@ parser.add_argument('--model_id', type=int, default=None, choices=[0,1,2], help=
 parser.add_argument('--save_dir', type=str, default="../saved", help="save perturbed images")
 parser.add_argument('--if_output', type=bool, default=True, help="if output the result")
 parser.add_argument('--if_save', type=bool, default=True, help="if save the perturbed images")
+parser.add_argument('--to_save_list', type=int, nargs='+', default=None, help="list of image indices to save")
 args = parser.parse_args()
 
     
@@ -81,7 +82,8 @@ def process_batch(
             if_output = args.if_output,
             device = device,
             save_dir= save_dir,
-            if_save = args.if_save
+            if_save = args.if_save,
+            to_save_list = args.to_save_list
         )
         
         for index, example in tqdm(enumerate(data_batch), total=data_batch.__len__(), desc=f"running: {args.algorithm}"):

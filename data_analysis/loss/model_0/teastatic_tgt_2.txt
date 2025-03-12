@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.802605  0.427492  0.130506        0.372934            0.373682
+loss_2              0.802605  1.000000  0.381663  0.185435        0.320953            0.374872
+loss_3              0.427492  0.381663  1.000000 -0.048711        0.031925            0.059441
+loss_4              0.130506  0.185435 -0.048711  1.000000       -0.044508           -0.034181
+targeted_count      0.372934  0.320953  0.031925 -0.044508        1.000000            0.912432
+targeted_count_log  0.373682  0.374872  0.059441 -0.034181        0.912432            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.372934
+loss_2    0.320953
+loss_3    0.031925
+loss_4   -0.044508
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.373682
+loss_2    0.374872
+loss_3    0.059441
+loss_4   -0.034181
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.687262  0.484646  0.115682        0.329858            0.329858
+loss_2              0.687262  1.000000  0.448455  0.197214        0.200085            0.200085
+loss_3              0.484646  0.448455  1.000000  0.049253        0.061377            0.061377
+loss_4              0.115682  0.197214  0.049253  1.000000       -0.071528           -0.071528
+targeted_count      0.329858  0.200085  0.061377 -0.071528        1.000000            1.000000
+targeted_count_log  0.329858  0.200085  0.061377 -0.071528        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.329858
+loss_2    0.200085
+loss_3    0.061377
+loss_4   -0.071528
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.232942252656544, p-value=0.0

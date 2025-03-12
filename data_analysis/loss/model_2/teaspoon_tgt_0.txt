@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.047684  0.198054 -0.078935        0.293103            0.230596
+loss_2              0.047684  1.000000 -0.026589  0.531801       -0.015433            0.087343
+loss_3              0.198054 -0.026589  1.000000  0.165318       -0.217646           -0.264571
+loss_4             -0.078935  0.531801  0.165318  1.000000       -0.665928           -0.525048
+targeted_count      0.293103 -0.015433 -0.217646 -0.665928        1.000000            0.836947
+targeted_count_log  0.230596  0.087343 -0.264571 -0.525048        0.836947            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.293103
+loss_2   -0.015433
+loss_3   -0.217646
+loss_4   -0.665928
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.230596
+loss_2    0.087343
+loss_3   -0.264571
+loss_4   -0.525048
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000 -0.242047  0.171159 -0.219005        0.300534            0.300534
+loss_2             -0.242047  1.000000  0.090734  0.445948       -0.143430           -0.143430
+loss_3              0.171159  0.090734  1.000000  0.316951       -0.292151           -0.292151
+loss_4             -0.219005  0.445948  0.316951  1.000000       -0.678028           -0.678028
+targeted_count      0.300534 -0.143430 -0.292151 -0.678028        1.000000            1.000000
+targeted_count_log  0.300534 -0.143430 -0.292151 -0.678028        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.300534
+loss_2   -0.143430
+loss_3   -0.292151
+loss_4   -0.678028
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.2135008291868198, p-value=0.0

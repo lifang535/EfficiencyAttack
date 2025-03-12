@@ -31,7 +31,7 @@ class TeaStatic(BaseAttack):
             self.inference(added_imgs)
             self.update_bx(it)
             self.logger(it)
-            self.update_buffer(added_imgs, it, frequency=200)
+            self.update_buffer(added_imgs, it) # save the image every <frequency> iterations
             
         self.save_with_thread_pool(max_workers=256)
         self.write_log()

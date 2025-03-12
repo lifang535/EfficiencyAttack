@@ -36,7 +36,8 @@ class BaseAttack:
                  if_output = True,
                  device: Optional[Union[str, torch.device]] = None,
                  if_save = False,
-                 save_dir = None):
+                 save_dir = None,
+                 to_save_list = None):
         
         self.model = model
         self.image_processor = image_processor
@@ -51,15 +52,26 @@ class BaseAttack:
         self.if_output = if_output
         self.if_save = if_save
         self.save_dir = save_dir
+        self.to_save_list = to_save_list
         
         self.buffer = []
         
-    def update_buffer(self, tensor, it, frequency=200):
-        if (it+1) % frequency == 0:
+    def update_buffer(self, tensor, it, frequency=None):
+        # frequency: how often to save the image
+        # if frequency is 5, then save the image every 5 iterations:
+        # 4, 9, 14, 19, 24, ...
+        if frequency and (it+1) % frequency == 0:
             self.buffer.append(
                     (
                         tensor.clone(), 
-                        os.path.join(self.save_dir, f"img_id_{str(self.img_id)}.pt")
+                        os.path.join(self.save_dir, f"img_id_{str(self.img_id)}_{str(it)}.pt")
+                    )
+                )
+        elif self.to_save_list and it in self.to_save_list:
+            self.buffer.append(
+                    (
+                        tensor.clone(), 
+                        os.path.join(self.save_dir, f"img_id_{str(self.img_id)}_{str(it)}.pt")
                     )
                 )
         else:
@@ -76,42 +88,42 @@ class BaseAttack:
         
         
     def ultra_fast_save(self, tensor, filepath):
-        # Get raw bytes directly from tensor
         tensor_cpu = tensor.detach().cpu().contiguous()
-        shape_header = np.array(tensor_cpu.shape, dtype=np.int64).tobytes()
-        dtype_num = np.array([torch.zeros(1, dtype=tensor_cpu.dtype).numpy().dtype.num], dtype=np.int8).tobytes()
-        
-        # Direct file write with minimal overhead
+        shape = tensor_cpu.shape
+
+        shape_dims = np.array([len(shape)], dtype=np.int8).tobytes()
+        shape_header = np.array(shape, dtype=np.int64).tobytes()
+
+        dtype_str = np.dtype(tensor_cpu.numpy().dtype).str.encode('ascii')
+        dtype_length = np.array([len(dtype_str)], dtype=np.int8).tobytes()
+
+        data_bytes = tensor_cpu.numpy().tobytes()
+
         with open(filepath, 'wb') as f:
-            # Get file descriptor for lowest-level operations
             fd = f.fileno()
-            
-            # Write metadata (12 bytes for shape dims + 1 byte for dtype)
-            os.write(fd, shape_header)
-            os.write(fd, dtype_num)
-            
-            # Write tensor data directly
-            os.write(fd, tensor_cpu.numpy().tobytes())
-            
-            # Force flush to disk
-            os.fsync(fd)
+            try:
+                os.write(fd, shape_dims)
+                os.write(fd, shape_header)
+                os.write(fd, dtype_length)
+                os.write(fd, dtype_str)
+                os.write(fd, data_bytes)
+                os.fsync(fd)
+            except Exception as e:
+                print(f"Failed to save tensor to {filepath}: {e}")
+                os.remove(filepath)
         
         
     def save_with_thread_pool(self, max_workers=256):
         """
         Save tensors using ThreadPoolExecutor for parallel processing
         """
-        def save_task(tensor, filepath):
-            self.ultra_fast_save(tensor, filepath)
-        
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all save tasks to the thread pool
-            futures = [executor.submit(save_task, tensor, filepath) for tensor, filepath in self.buffer]
-            
-            # Wait for all tasks to complete (optional, as context manager will do this)
+            futures = [executor.submit(self.ultra_fast_save, tensor, filepath) for tensor, filepath in self.buffer]
             for future in futures:
-                future.result()
-                
+                try:
+                    future.result()
+                except Exception as e:
+                    print(f"Error saving tensor: {e}")
         self.buffer.clear()
             
             

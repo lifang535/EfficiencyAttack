@@ -45,10 +45,8 @@ for idx, item in tqdm(enumerate(ds['train']), total=num_embeddings):
         break
         
     try:
-        # 修正：直接使用item['image']，确保为RGB格式
         img = item['image'].convert('RGB')
         
-        # 其余代码不变
         boxes, probs = mtcnn.detect(img)
         
         if boxes is not None and len(boxes) > 0:

@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.845273  0.452622  0.608892        0.347885            0.342786
+loss_2              0.845273  1.000000  0.395956  0.702313        0.368133            0.397417
+loss_3              0.452622  0.395956  1.000000  0.210436        0.060125            0.080138
+loss_4              0.608892  0.702313  0.210436  1.000000        0.402620            0.408598
+targeted_count      0.347885  0.368133  0.060125  0.402620        1.000000            0.916461
+targeted_count_log  0.342786  0.397417  0.080138  0.408598        0.916461            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.347885
+loss_2    0.368133
+loss_3    0.060125
+loss_4    0.402620
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.342786
+loss_2    0.397417
+loss_3    0.080138
+loss_4    0.408598
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.787274  0.538181  0.550512        0.328935            0.328935
+loss_2              0.787274  1.000000  0.479431  0.680528        0.281891            0.281891
+loss_3              0.538181  0.479431  1.000000  0.307637        0.109150            0.109150
+loss_4              0.550512  0.680528  0.307637  1.000000        0.348659            0.348659
+targeted_count      0.328935  0.281891  0.109150  0.348659        1.000000            1.000000
+targeted_count_log  0.328935  0.281891  0.109150  0.348659        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.328935
+loss_2    0.281891
+loss_3    0.109150
+loss_4    0.348659
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.23404481528556645, p-value=0.0

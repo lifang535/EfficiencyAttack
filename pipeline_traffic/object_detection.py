@@ -1,40 +1,3 @@
-"""
-
-                                  ___ face recognition _________
-                                 /                              \______ knowledge ___
-                                /                               /       retrieval    \ 
-data ----- object detection ---|----- license plate recognition                       \     
-                                \                                                      |--- language model
-                                 \                                                    /
-                                  \___ image captioning _____________________________/
-
-
-object detection:
-    - YOLO or Vision Transformer
-    - Input: PIL Image
-    - Output: (box, cls, scores)
-    
-face recognition:
-    - ResNet 101
-    - Input: bounding boxes which has a cls label == "person"
-    - Output: 
-    
-license plate recognition:
-    - ResNet 18
-    - Input: bounding boxes which has a cls label == "car"
-    - Output:
-    
-image captioning:
-    - ResNet 101
-    - Input: bounding boxes which has a cls label == ["person", "car", "traffic lights", "stop sign"]
-    - Output:
-        
-language model:
-    - GPT 2
-    
-"""
-
-
 from multiprocessing import Process, Queue, Event
 from queue import Empty
 import multiprocessing as mp
@@ -43,7 +6,9 @@ import time
 import torch
 import numpy as np
 import sys
+from pathlib import Path
 sys.path.append("../")
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 import os
 from tqdm import tqdm
 import logging
@@ -100,7 +65,7 @@ class odStream(Process):
                     # Convert numpy array back to tensor and move to GPU
                     request = torch.from_numpy(data).to(self.device)
                     request = self.denormalize(request)
-                    request = request.unsqueeze(0)  # Add batch dimension
+                    # request = request.unsqueeze(0)  # Add batch dimension
                     
                     with torch.no_grad():
                         od_output = self.model(request)
@@ -172,7 +137,7 @@ class odStream(Process):
                             max_x = max(max_x, x2.item())
                             max_y = max(max_y, y2.item())
                             found_valid_box = True
-                    if found_valid_box:
+                    if found_valid_box and (min_x >= max_x or min_y >= max_y):
                         cropped_tensor = request[:, :, int(min_y):int(max_y), int(min_x):int(max_x)]
                         cropped_np = cropped_tensor.cpu().numpy()
                         self.od2cap_queue.put(cropped_np)

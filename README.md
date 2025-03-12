@@ -49,6 +49,7 @@ conda activate teapipe
 
 ```sh
 cd pipeline_traffic
+conda install -c conda-forge pygobject
 pip install pipeline_requirements.txt
 python embed_face.py # prepare a demo dataset for the pipeline
 ```
@@ -56,4 +57,59 @@ python embed_face.py # prepare a demo dataset for the pipeline
 ```sh
 alias python=python3 # if necessary
 python traffic.py --model_id <id> --algorithm <a>
+```
+
+```
+
+                                  ____________ face recognition ________
+                                 /                                      \______ knowledge 
+                                /                                       /       retrieval    
+data ----- object detection ---|----- license plate segmentation --- ocr             \ 
+                                \                                                    |--- language model
+                                 \                                                   /
+                                  \___ image captioning ____________________________/
+
+
+object detection:
+    - YOLO or Vision Transformer
+    - Input: PIL Image
+    - Output: (box, cls, scores)
+    
+face recognition:
+    - FaceNet
+    - Input: bounding boxes which has a cls label == "person"
+    - Output: 
+    
+license plate recognition:
+    - DeepLab V3
+    - Input: bounding boxes which has a cls label == "car"
+    - Output:
+    
+ocr:
+    - onnx ocr
+    - Input: cropped license plate image
+    - Output: text
+    
+image captioning:
+    - huggingface "microsoft/git-base"
+    - Input: bounding boxes which has a cls label == ["person", "car", "traffic lights", "stop sign"]
+    - Output: text
+        
+knowledge retrieval:
+    - GPT 2
+    - Explanation: prompt gpt-2 to give possible misprediction of the give license plate
+    - Input: license plate text
+    - Output: 5 possible license plate text
+    
+    - Database
+    - Explanation: compare the similarity of the detected face with the stored faces
+    - Input: face embedding
+    - Output: name of the most similar face and confidence score
+    
+language model:
+    - GPT 2/Grok 2 (now offer two choices)
+    - Input: prompt
+    - Output: text
+    
+
 ```

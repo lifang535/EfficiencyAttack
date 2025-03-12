@@ -1,40 +1,3 @@
-"""
-
-                                  ___ face recognition _________
-                                 /                              \______ knowledge ___
-                                /                               /       retrieval    \ 
-data ----- object detection ---|----- license plate recognition                       \     
-                                \                                                      |--- language model
-                                 \                                                    /
-                                  \___ image captioning _____________________________/
-
-
-object detection:
-    - YOLO or Vision Transformer
-    - Input: PIL Image
-    - Output: (box, cls, scores)
-    
-face recognition:
-    - ResNet 101
-    - Input: bounding boxes which has a cls label == "person"
-    - Output: 
-    
-license plate recognition:
-    - ResNet 18
-    - Input: bounding boxes which has a cls label == "car"
-    - Output:
-    
-image captioning:
-    - ResNet 101
-    - Input: bounding boxes which has a cls label == ["person", "car", "traffic lights", "stop sign"]
-    - Output:
-        
-language model:
-    - GPT 2
-    
-"""
-
-
 from multiprocessing import Process, Queue, Event
 from queue import Empty
 import multiprocessing as mp
@@ -43,7 +6,9 @@ import time
 import torch
 import numpy as np
 import sys
+from pathlib import Path
 sys.path.append("../")
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 import os
 from tqdm import tqdm
 import logging

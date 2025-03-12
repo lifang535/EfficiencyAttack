@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.095083  0.189829 -0.022277        0.315730            0.280730
+loss_2              0.095083  1.000000 -0.003189  0.576026       -0.057825            0.090038
+loss_3              0.189829 -0.003189  1.000000  0.159637       -0.198653           -0.223553
+loss_4             -0.022277  0.576026  0.159637  1.000000       -0.659742           -0.499477
+targeted_count      0.315730 -0.057825 -0.198653 -0.659742        1.000000            0.861642
+targeted_count_log  0.280730  0.090038 -0.223553 -0.499477        0.861642            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.315730
+loss_2   -0.057825
+loss_3   -0.198653
+loss_4   -0.659742
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.280730
+loss_2    0.090038
+loss_3   -0.223553
+loss_4   -0.499477
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000 -0.240545  0.168718 -0.185642        0.310688            0.310688
+loss_2             -0.240545  1.000000  0.099452  0.519330       -0.163936           -0.163936
+loss_3              0.168718  0.099452  1.000000  0.325157       -0.295995           -0.295995
+loss_4             -0.185642  0.519330  0.325157  1.000000       -0.681953           -0.681953
+targeted_count      0.310688 -0.163936 -0.295995 -0.681953        1.000000            1.000000
+targeted_count_log  0.310688 -0.163936 -0.295995 -0.681953        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.310688
+loss_2   -0.163936
+loss_3   -0.295995
+loss_4   -0.681953
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.22055826806711729, p-value=0.0

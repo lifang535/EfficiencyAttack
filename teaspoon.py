@@ -32,7 +32,7 @@ class TeaSpoon(BaseAttack):
             self.update_bx(it)
             self.logger(it)
             
-            self.update_buffer(added_imgs, it, frequency=200)
+            self.update_buffer(added_imgs, it)
             
         self.save_with_thread_pool(max_workers=256)
             

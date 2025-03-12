@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.086128  0.191670 -0.050209        0.324323            0.288154
+loss_2              0.086128  1.000000 -0.015642  0.406835       -0.045892            0.097784
+loss_3              0.191670 -0.015642  1.000000  0.268903       -0.211692           -0.253861
+loss_4             -0.050209  0.406835  0.268903  1.000000       -0.651357           -0.532886
+targeted_count      0.324323 -0.045892 -0.211692 -0.651357        1.000000            0.851664
+targeted_count_log  0.288154  0.097784 -0.253861 -0.532886        0.851664            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.324323
+loss_2   -0.045892
+loss_3   -0.211692
+loss_4   -0.651357
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.288154
+loss_2    0.097784
+loss_3   -0.253861
+loss_4   -0.532886
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000 -0.246287  0.172413 -0.120585        0.320625            0.320625
+loss_2             -0.246287  1.000000  0.086101  0.396284       -0.158879           -0.158879
+loss_3              0.172413  0.086101  1.000000  0.434233       -0.294641           -0.294641
+loss_4             -0.120585  0.396284  0.434233  1.000000       -0.688931           -0.688931
+targeted_count      0.320625 -0.158879 -0.294641 -0.688931        1.000000            1.000000
+targeted_count_log  0.320625 -0.158879 -0.294641 -0.688931        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.320625
+loss_2   -0.158879
+loss_3   -0.294641
+loss_4   -0.688931
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.2276741848316022, p-value=0.0
