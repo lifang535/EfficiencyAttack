@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.774749  0.454661  0.502933        0.290936            0.293847
+loss_2              0.774749  1.000000  0.340556  0.507431        0.310839            0.356802
+loss_3              0.454661  0.340556  1.000000  0.192675        0.065578            0.068838
+loss_4              0.502933  0.507431  0.192675  1.000000        0.351439            0.342198
+targeted_count      0.290936  0.310839  0.065578  0.351439        1.000000            0.912408
+targeted_count_log  0.293847  0.356802  0.068838  0.342198        0.912408            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.290936
+loss_2    0.310839
+loss_3    0.065578
+loss_4    0.351439
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.293847
+loss_2    0.356802
+loss_3    0.068838
+loss_4    0.342198
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.683377  0.532938  0.402619        0.270766            0.270766
+loss_2              0.683377  1.000000  0.414015  0.504144        0.199297            0.199297
+loss_3              0.532938  0.414015  1.000000  0.241999        0.121958            0.121958
+loss_4              0.402619  0.504144  0.241999  1.000000        0.300198            0.300198
+targeted_count      0.270766  0.199297  0.121958  0.300198        1.000000            1.000000
+targeted_count_log  0.270766  0.199297  0.121958  0.300198        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.270766
+loss_2    0.199297
+loss_3    0.121958
+loss_4    0.300198
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.18888987916782557, p-value=0.0

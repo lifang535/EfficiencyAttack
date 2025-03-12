@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.768063  0.409246  0.139377        0.325321            0.319298
+loss_2              0.768063  1.000000  0.339497  0.173588        0.292242            0.342823
+loss_3              0.409246  0.339497  1.000000 -0.077228        0.038873            0.069133
+loss_4              0.139377  0.173588 -0.077228  1.000000       -0.027209           -0.016239
+targeted_count      0.325321  0.292242  0.038873 -0.027209        1.000000            0.911279
+targeted_count_log  0.319298  0.342823  0.069133 -0.016239        0.911279            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.325321
+loss_2    0.292242
+loss_3    0.038873
+loss_4   -0.027209
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.319298
+loss_2    0.342823
+loss_3    0.069133
+loss_4   -0.016239
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.570049  0.464967  0.111472        0.300992            0.300992
+loss_2              0.570049  1.000000  0.388949  0.156032        0.131799            0.131799
+loss_3              0.464967  0.388949  1.000000 -0.000888        0.044652            0.044652
+loss_4              0.111472  0.156032 -0.000888  1.000000       -0.076494           -0.076494
+targeted_count      0.300992  0.131799  0.044652 -0.076494        1.000000            1.000000
+targeted_count_log  0.300992  0.131799  0.044652 -0.076494        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.300992
+loss_2    0.131799
+loss_3    0.044652
+loss_4   -0.076494
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.21075215863732544, p-value=0.0

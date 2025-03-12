@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.779869  0.434912  0.218187        0.240374            0.204219
+loss_2              0.779869  1.000000  0.363915  0.265643        0.263717            0.277267
+loss_3              0.434912  0.363915  1.000000  0.036569       -0.010089           -0.001489
+loss_4              0.218187  0.265643  0.036569  1.000000       -0.358368           -0.340244
+targeted_count      0.240374  0.263717 -0.010089 -0.358368        1.000000            0.904956
+targeted_count_log  0.204219  0.277267 -0.001489 -0.340244        0.904956            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.240374
+loss_2    0.263717
+loss_3   -0.010089
+loss_4   -0.358368
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.204219
+loss_2    0.277267
+loss_3   -0.001489
+loss_4   -0.340244
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.651179  0.496195  0.187339        0.243360            0.243360
+loss_2              0.651179  1.000000  0.424259  0.230193        0.123172            0.123172
+loss_3              0.496195  0.424259  1.000000  0.133690        0.019366            0.019366
+loss_4              0.187339  0.230193  0.133690  1.000000       -0.365997           -0.365997
+targeted_count      0.243360  0.123172  0.019366 -0.365997        1.000000            1.000000
+targeted_count_log  0.243360  0.123172  0.019366 -0.365997        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.243360
+loss_2    0.123172
+loss_3    0.019366
+loss_4   -0.365997
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.16841634548026324, p-value=0.0

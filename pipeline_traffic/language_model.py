@@ -67,8 +67,22 @@ class lmStream(Process):
                         if cap_data is None:
                             cap_end_received = True
                             logger.info("Received end signal from CAP stream")
-                        else:
-                            # Process CAP data
+                        elif not cap_end_received:
+                            with torch.no_grad():
+                                prompt = cap_data
+                                encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+                                generated_ids = self.model.generate(**encoded_input, 
+                                                                    max_new_tokens=50, 
+                                                                    do_sample=True,
+                                                                    pad_token_id=self.tokenizer.eos_token_id)   
+                                decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+                                
+                                # self.grok_chat_completion(prompt, stream=False, temperature=0, max_tokens=50)
+                                # logger.info(f"Generated output: {decoded_text[:50]}...")
+                            
+                            del prompt, encoded_input, generated_ids, decoded_text
+                            torch.cuda.empty_cache()
+                            pass
                             pass
                     except Empty:
                         pass
@@ -79,29 +93,42 @@ class lmStream(Process):
                         if kr_data is None:
                             kr_end_received = True
                             logger.info("Received end signal from KR stream")
-                        else:
-                            # Process KR data
+                        elif not kr_end_received:
+                            with torch.no_grad():
+                                prompt = kr_data
+                                encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+                                generated_ids = self.model.generate(**encoded_input, 
+                                                                    max_new_tokens=50, 
+                                                                    do_sample=True,
+                                                                    pad_token_id=self.tokenizer.eos_token_id)   
+                                decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+                                
+                                # self.grok_chat_completion(prompt, stream=False, temperature=0, max_tokens=50)
+                                # logger.info(f"Generated output: {decoded_text[:50]}...")
+                            
+                            del prompt, encoded_input, generated_ids, decoded_text
+                            torch.cuda.empty_cache()
                             pass
                     except Empty:
                         pass
                     
                     # If we have both cap_data and kr_data, process them
-                    if cap_data is not None and kr_data is not None and not isinstance(cap_data, bool) and not isinstance(kr_data, bool):
-                        prompt = kr_data + cap_data
-                        with torch.no_grad():
+                    # if cap_data is not None and kr_data is not None and not isinstance(cap_data, bool) and not isinstance(kr_data, bool):
+                    #     prompt = kr_data + cap_data
+                    #     with torch.no_grad():
                             
-                            encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-                            generated_ids = self.model.generate(**encoded_input, 
-                                                                max_new_tokens=50, 
-                                                                do_sample=True,
-                                                                pad_token_id=self.tokenizer.eos_token_id)   
-                            decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+                    #         encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+                    #         generated_ids = self.model.generate(**encoded_input, 
+                    #                                             max_new_tokens=50, 
+                    #                                             do_sample=True,
+                    #                                             pad_token_id=self.tokenizer.eos_token_id)   
+                    #         decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
                             
-                            # self.grok_chat_completion(prompt, stream=False, temperature=0, max_tokens=50)
-                            # logger.info(f"Generated output: {decoded_text[:50]}...")
+                    #         # self.grok_chat_completion(prompt, stream=False, temperature=0, max_tokens=50)
+                    #         # logger.info(f"Generated output: {decoded_text[:50]}...")
                         
-                        del prompt, encoded_input, generated_ids, decoded_text
-                        torch.cuda.empty_cache()
+                    #     del prompt, encoded_input, generated_ids, decoded_text
+                    #     torch.cuda.empty_cache()
                 
                 except Exception as e:
                     logger.error(f"Error processing in LM stream: {str(e)}", exc_info=True)

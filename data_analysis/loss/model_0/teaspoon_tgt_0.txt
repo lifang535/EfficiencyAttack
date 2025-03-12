@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.789186  0.434175  0.540890        0.197028            0.164912
+loss_2              0.789186  1.000000  0.335240  0.600834        0.258207            0.257377
+loss_3              0.434175  0.335240  1.000000  0.187065       -0.010349           -0.017099
+loss_4              0.540890  0.600834  0.187065  1.000000       -0.300926           -0.290078
+targeted_count      0.197028  0.258207 -0.010349 -0.300926        1.000000            0.909345
+targeted_count_log  0.164912  0.257377 -0.017099 -0.290078        0.909345            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.197028
+loss_2    0.258207
+loss_3   -0.010349
+loss_4   -0.300926
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.164912
+loss_2    0.257377
+loss_3   -0.017099
+loss_4   -0.290078
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.692681  0.503715  0.428304        0.207824            0.207824
+loss_2              0.692681  1.000000  0.401904  0.516975        0.146555            0.146555
+loss_3              0.503715  0.401904  1.000000  0.283430        0.010495            0.010495
+loss_4              0.428304  0.516975  0.283430  1.000000       -0.313771           -0.313771
+targeted_count      0.207824  0.146555  0.010495 -0.313771        1.000000            1.000000
+targeted_count_log  0.207824  0.146555  0.010495 -0.313771        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.207824
+loss_2    0.146555
+loss_3    0.010495
+loss_4   -0.313771
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.1432808066194173, p-value=0.0

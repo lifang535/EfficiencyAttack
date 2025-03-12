@@ -1,0 +1,43 @@
+========= (A) Pearson 相关 ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.840034  0.437406  0.652299        0.321191            0.322009
+loss_2              0.840034  1.000000  0.380010  0.782601        0.339372            0.370438
+loss_3              0.437406  0.380010  1.000000  0.184248        0.027269            0.049923
+loss_4              0.652299  0.782601  0.184248  1.000000        0.440002            0.480893
+targeted_count      0.321191  0.339372  0.027269  0.440002        1.000000            0.919060
+targeted_count_log  0.322009  0.370438  0.049923  0.480893        0.919060            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.321191
+loss_2    0.339372
+loss_3    0.027269
+loss_4    0.440002
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.322009
+loss_2    0.370438
+loss_3    0.049923
+loss_4    0.480893
+dtype: float64
+
+========= (B) Spearman 相关 ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.769379  0.514634  0.550836        0.299893            0.299893
+loss_2              0.769379  1.000000  0.451950  0.693257        0.253460            0.253460
+loss_3              0.514634  0.451950  1.000000  0.287876        0.078247            0.078247
+loss_4              0.550836  0.693257  0.287876  1.000000        0.365960            0.365960
+targeted_count      0.299893  0.253460  0.078247  0.365960        1.000000            1.000000
+targeted_count_log  0.299893  0.253460  0.078247  0.365960        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.299893
+loss_2    0.253460
+loss_3    0.078247
+loss_4    0.365960
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.21204786630988692, p-value=0.0
