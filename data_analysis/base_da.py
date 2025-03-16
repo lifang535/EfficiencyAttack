@@ -235,14 +235,14 @@ def loss(path_to_jsons):
     columns = ["loss_1", "loss_2", "loss_3", "loss_4", "targeted_count"]
     df = pd.DataFrame(all_data, columns=columns)
     
-    # 在有些情况下, 计数数据可能分布很偏斜, 我们可以加入一个log变换列做对比:
+    # ========== Log transform the targeted_count ==========
     df["targeted_count_log"] = np.log1p(df["targeted_count"])  # log( x + 1 )
-    # ========== (A) Pearson 相关 ==========
+    # ========== (A) Pearson ==========
     pearson_corr_matrix = df.corr(method="pearson")
     pearson_corr_loss_targeted = df[["loss_1","loss_2","loss_3","loss_4"]].corrwith(df["targeted_count"])
     pearson_corr_loss_targeted_log = df[["loss_1","loss_2","loss_3","loss_4"]].corrwith(df["targeted_count_log"])
     
-    # ========== (B) Spearman 相关 ==========
+    # ========== (B) Spearman ==========
     spearman_corr_matrix = df.corr(method="spearman")
     spearman_corr_loss_targeted = df[["loss_1","loss_2","loss_3","loss_4"]].corrwith(df["targeted_count"], method="spearman")
     
@@ -252,7 +252,7 @@ def loss(path_to_jsons):
     # ========== Prepare the output text ==========
     output_lines = []
 
-    output_lines.append("========= (A) Pearson 相关 ==========\n")
+    output_lines.append("========= (A) Pearson ==========\n")
     output_lines.append("Pearson Correlation Matrix:\n")
     output_lines.append(str(pearson_corr_matrix))
     output_lines.append("\n")
@@ -265,7 +265,7 @@ def loss(path_to_jsons):
     output_lines.append(str(pearson_corr_loss_targeted_log))
     output_lines.append("\n")
 
-    output_lines.append("\n========= (B) Spearman 相关 ==========\n")
+    output_lines.append("\n========= (B) Spearman ==========\n")
     output_lines.append("Spearman Correlation Matrix:\n")
     output_lines.append(str(spearman_corr_matrix))
     output_lines.append("\n")
@@ -285,10 +285,68 @@ def loss(path_to_jsons):
     # Optional: You can still print to console if you want
     # print("".join(output_lines))
 
+def vis(path_list):
+    """Visualizes the loss terms and targeted count for a single image over 200 iterations."""
+
+    for path_to_json in get_json_paths(path_list):
+        # Extract target index from the filename
+        if "0" in path_to_json:
+            target_idx = 0
+        elif "2" in path_to_json:
+            target_idx = 2
+        elif "68" in path_to_json:
+            target_idx = 68
+        elif "23" in path_to_json:
+            target_idx = 23
+        elif "0_2" in path_to_json:
+            target_idx = [0,2]
+        else:
+            target_idx = 0  # Default to 0 if no target index found
+        # Extract loss data for this single image
+        iteration_data = process_json(path_to_json, target_idx)
+
+        # Convert to DataFrame
+        columns = ["loss_1", "loss_2", "loss_3", "loss_4", "targeted_count"]
+        df = pd.DataFrame(iteration_data, columns=columns)
+
+        # Ensure exactly 200 iterations
+        df = df.iloc[:200]
+
+        # X-axis (Iterations)
+        iterations = np.arange(1, 201)
+
+        # Create a figure
+        fig, ax1 = plt.subplots(figsize=(10, 5))
+
+        # Plot loss values (left Y-axis)
+        ax1.plot(iterations, df["loss_1"], label="Loss 1", color="blue", linestyle="-")
+        ax1.plot(iterations, df["loss_2"], label="Loss 2", color="red", linestyle="--")
+        ax1.plot(iterations, df["loss_3"], label="Loss 3", color="green", linestyle="-.")
+        ax1.set_xlabel("Iterations")
+        ax1.set_ylabel("Loss Values")
+        ax1.legend(loc="upper right")
+        ax1.grid(True, linestyle="--", alpha=0.5)
+
+        # Create secondary y-axis for targeted count
+        ax2 = ax1.twinx()
+        ax2.plot(iterations, df["targeted_count"], label="Targeted Count", color="black", linestyle="dotted")
+        ax2.set_ylabel("Targeted Count")
+        ax2.legend(loc="upper left")
+
+        plt.title(f"Loss Terms and Targeted Count Over 200 Iterations\n{os.path.basename(path_to_json)}")
+
+        # Save the visualization per image
+        output_dir = os.path.join("./loss_plt", os.path.basename(os.path.dirname(path_to_json)))
+        os.makedirs(output_dir, exist_ok=True)
+        vis_path = os.path.join(output_dir, f"{os.path.basename(path_to_json)}.png")
+        plt.savefig(vis_path)
+        plt.close()
+        print(f"Saved loss visualization to {vis_path}")
+
 if __name__ == "__main__":
     # non_tgt()
     # baseline()
-
+    
     paths = get_paths(base_path,
                     model_id=None,
                     algorithm=None,
@@ -296,6 +354,7 @@ if __name__ == "__main__":
     print("Processing : ", len(paths))
     for p in paths:
         loss(p)
+        # vis(p)
     pass
 
             

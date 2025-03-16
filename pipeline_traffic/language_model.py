@@ -34,6 +34,9 @@ class lmStream(Process):
         self.kr2lm_queue = kr2lm_queue
         self.stop_event = Event()
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.kr_buffer = []  # Knowledge retrieval buffer (max size: 100)
+        self.cap_buffer = []  # Captioning buffer (max size: 10)
         
     def set_config(self, model_id):
         self.model_id = model_id
@@ -52,65 +55,123 @@ class lmStream(Process):
             
             cap_end_received = False
             kr_end_received = False
-            cap_data = None
-            kr_data = None
+            
+            # cap_data = None
+            # kr_data = None
+            buffer_flag = False
             while not self.stop_event.is_set():
                 # Exit condition: both upstream processes have terminated
                 if cap_end_received and kr_end_received:
                     logger.info("Both CAP and KR streams have ended, terminating LM stream")
                     break
                 
+                # read, update cap buffer
                 try:
-                    # Get data from CAP stream with short timeout
-                    try:
+                    if not cap_end_received:
                         cap_data = self.cap2lm_queue.get(timeout=0.5)
                         if cap_data is None:
                             cap_end_received = True
                             logger.info("Received end signal from CAP stream")
-                        elif not cap_end_received:
-                            with torch.no_grad():
-                                prompt = cap_data
-                                encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-                                generated_ids = self.model.generate(**encoded_input, 
-                                                                    max_new_tokens=50, 
-                                                                    do_sample=True,
-                                                                    pad_token_id=self.tokenizer.eos_token_id)   
-                                decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
-                                
-                                # self.grok_chat_completion(prompt, stream=False, temperature=0, max_tokens=50)
-                                # logger.info(f"Generated output: {decoded_text[:50]}...")
-                            
-                            del prompt, encoded_input, generated_ids, decoded_text
-                            torch.cuda.empty_cache()
-                            pass
-                            pass
-                    except Empty:
-                        pass
-                    
-                    # Get data from KR stream with short timeout
-                    try:
+                        else:
+                            self.cap_buffer.append(cap_data)
+                            if len(self.cap_buffer) > 10:  # max size 10
+                                self.cap_buffer.pop(0)
+                            buffer_flag = True # buffer is updated
+                except Empty:
+                    pass
+
+                # read, update kr buffer
+                try:
+                    if not kr_end_received:
                         kr_data = self.kr2lm_queue.get(timeout=0.5)
                         if kr_data is None:
                             kr_end_received = True
                             logger.info("Received end signal from KR stream")
-                        elif not kr_end_received:
-                            with torch.no_grad():
-                                prompt = kr_data
-                                encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-                                generated_ids = self.model.generate(**encoded_input, 
-                                                                    max_new_tokens=50, 
-                                                                    do_sample=True,
-                                                                    pad_token_id=self.tokenizer.eos_token_id)   
-                                decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+                        else:
+                            self.kr_buffer.append(kr_data)
+                            if len(self.kr_buffer) > 100:  # max size 100
+                                self.kr_buffer.pop(0)
+                            buffer_flag = True # buffer is updated
+                except Empty:
+                    pass
+                
+                if buffer_flag: # do not do inference when no new info
+                    prompt = ""
+                    if self.kr_buffer:
+                        prompt += " ".join(self.kr_buffer[-5:])  # use latest 5 
+                    if self.cap_buffer:
+                        prompt += " " + " ".join(self.cap_buffer[-2:])  # use latest 2
+
+                    if prompt:
+                        with torch.no_grad():
+                            # use grok 2
+                            # self.grok_chat_completion(prompt, stream=False, temperature=0, max_tokens=50)
+
+                            # use GPT-2
+                            encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+                            generated_ids = self.model.generate(
+                                **encoded_input, 
+                                max_new_tokens=50, 
+                                do_sample=True,
+                                pad_token_id=self.tokenizer.eos_token_id
+                            )   
+                            decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+                            logger.info(f"Generated output: {decoded_text[:50]}...")
+
+                        del encoded_input, generated_ids, decoded_text
+                        torch.cuda.empty_cache()
+                        buffer_flag = False # toggle flag
+                # try:
+                #     # Get data from CAP stream with short timeout
+                #     try:
+                #         cap_data = self.cap2lm_queue.get(timeout=0.5)
+                #         if cap_data is None:
+                #             cap_end_received = True
+                #             logger.info("Received end signal from CAP stream")
+                #         elif not cap_end_received:
+                #             with torch.no_grad():
+                #                 prompt = cap_data
+                #                 encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+                #                 generated_ids = self.model.generate(**encoded_input, 
+                #                                                     max_new_tokens=50, 
+                #                                                     do_sample=True,
+                #                                                     pad_token_id=self.tokenizer.eos_token_id)   
+                #                 decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
                                 
-                                # self.grok_chat_completion(prompt, stream=False, temperature=0, max_tokens=50)
-                                # logger.info(f"Generated output: {decoded_text[:50]}...")
+                #                 # self.grok_chat_completion(prompt, stream=False, temperature=0, max_tokens=50)
+                #                 # logger.info(f"Generated output: {decoded_text[:50]}...")
                             
-                            del prompt, encoded_input, generated_ids, decoded_text
-                            torch.cuda.empty_cache()
-                            pass
-                    except Empty:
-                        pass
+                #             del prompt, encoded_input, generated_ids, decoded_text
+                #             torch.cuda.empty_cache()
+                #             pass
+                #             pass
+                #     except Empty:
+                #         pass
+                    
+                #     # Get data from KR stream with short timeout
+                #     try:
+                #         kr_data = self.kr2lm_queue.get(timeout=0.5)
+                #         if kr_data is None:
+                #             kr_end_received = True
+                #             logger.info("Received end signal from KR stream")
+                #         elif not kr_end_received:
+                #             with torch.no_grad():
+                #                 prompt = kr_data
+                #                 encoded_input = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+                #                 generated_ids = self.model.generate(**encoded_input, 
+                #                                                     max_new_tokens=50, 
+                #                                                     do_sample=True,
+                #                                                     pad_token_id=self.tokenizer.eos_token_id)   
+                #                 decoded_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+                                
+                #                 # self.grok_chat_completion(prompt, stream=False, temperature=0, max_tokens=50)
+                #                 # logger.info(f"Generated output: {decoded_text[:50]}...")
+                            
+                #             del prompt, encoded_input, generated_ids, decoded_text
+                #             torch.cuda.empty_cache()
+                #             pass
+                #     except Empty:
+                #         pass
                     
                     # If we have both cap_data and kr_data, process them
                     # if cap_data is not None and kr_data is not None and not isinstance(cap_data, bool) and not isinstance(kr_data, bool):
@@ -130,8 +191,8 @@ class lmStream(Process):
                     #     del prompt, encoded_input, generated_ids, decoded_text
                     #     torch.cuda.empty_cache()
                 
-                except Exception as e:
-                    logger.error(f"Error processing in LM stream: {str(e)}", exc_info=True)
+                # except Exception as e:
+                #     logger.error(f"Error processing in LM stream: {str(e)}", exc_info=True)
             
         except Exception as e:
             logger.error(f"Error in LM stream: {str(e)}", exc_info=True)

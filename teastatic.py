@@ -57,23 +57,24 @@ class TeaStatic(BaseAttack):
         loss3 = 100*torch.sum(sel_aaa)
         
         cls_loss_target_tensor = self.cls_loss_target()
-        loss4 = 0.1 * F.mse_loss(self.prob, cls_loss_target_tensor, reduction='sum')
+        loss4 = 1.0 * F.mse_loss(self.logits, cls_loss_target_tensor, reduction='sum')
         
         alpha1, alpha2, alpha3 = 1,1,1
-        total_loss = alpha3 * loss2 + alpha2 * loss3 + alpha1 * loss1 + loss4
+        # total_loss = alpha3 * loss2 + alpha2 * loss3 + alpha1 * loss1 + loss4
+        total_loss = alpha3 * loss2 + alpha2 * loss3 + alpha1 * loss4
         total_loss.requires_grad_(True)
         
         self.adam_opt.zero_grad()
         total_loss.backward(retain_graph=True)
         self.bx.grad = self.bx.grad / (torch.norm(self.bx.grad,p=2) + 1e-20)
-        self.bx.data = -1.5 * self.bx.grad+ self.bx.data
+        self.bx.data = - 1.5 * self.bx.grad+ self.bx.data
         
         self.clone_loss(loss1, loss2, loss3, loss4)
         return self.bx
         
         
     def cls_loss_target(self):
-        target_tensor = torch.zeros_like(self.prob)
+        target_tensor = torch.zeros_like(self.logits)
         if isinstance(self.target_idx, int):
             target_tensor[:, self.target_idx] = 1.0
             pdb.set_trace()
@@ -81,7 +82,7 @@ class TeaStatic(BaseAttack):
             for i in self.target_idx:
                 target_tensor[:, i] = 1.0
         elif self.target_idx == None:
-            target_tensor = self.prob.detach().clone()
+            target_tensor = torch.ones_like(self.logits)
         return target_tensor
 
 

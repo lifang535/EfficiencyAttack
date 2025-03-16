@@ -1,0 +1,43 @@
+========= (A) Pearson ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.727723  0.102376 -0.584233        0.909440            0.678236
+loss_2              0.727723  1.000000  0.064942 -0.754226        0.806433            0.680065
+loss_3              0.102376  0.064942  1.000000  0.002222        0.074225            0.065928
+loss_4             -0.584233 -0.754226  0.002222  1.000000       -0.809516           -0.893744
+targeted_count      0.909440  0.806433  0.074225 -0.809516        1.000000            0.851730
+targeted_count_log  0.678236  0.680065  0.065928 -0.893744        0.851730            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.909440
+loss_2    0.806433
+loss_3    0.074225
+loss_4   -0.809516
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.678236
+loss_2    0.680065
+loss_3    0.065928
+loss_4   -0.893744
+dtype: float64
+
+========= (B) Spearman ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000  0.675659  0.213376 -0.710871        0.849094            0.849094
+loss_2              0.675659  1.000000  0.119644 -0.922095        0.853383            0.853383
+loss_3              0.213376  0.119644  1.000000 -0.046264        0.154942            0.154942
+loss_4             -0.710871 -0.922095 -0.046264  1.000000       -0.912917           -0.912917
+targeted_count      0.849094  0.853383  0.154942 -0.912917        1.000000            1.000000
+targeted_count_log  0.849094  0.853383  0.154942 -0.912917        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.849094
+loss_2    0.853383
+loss_3    0.154942
+loss_4   -0.912917
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.7635820243529814, p-value=0.0

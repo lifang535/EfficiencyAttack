@@ -89,7 +89,9 @@ if __name__ == "__main__":
         output = image_processor.post_process_object_detection(result, 
                                                             threshold = thres, 
                                                             target_sizes = target_size)[0]
-        
-        print(f"model ID {i}, \nshape: {logits.shape}, num_class{model.config.id2label}")
+        scores = output["scores"]
+        print(f"== * ==")
+        print(f"model ID {i}, \nshape: {logits.shape}, num_class{model.config}")
+        print(f"model ID {i}, \nshape: {scores.shape}")
         print(f"== * ==")
     

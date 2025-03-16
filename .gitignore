@@ -11,6 +11,7 @@ __pycache__/
 *.pyd
 *.db
 *.npy
+*.db
 
 # API Key
 .env

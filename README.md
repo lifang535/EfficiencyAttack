@@ -52,6 +52,7 @@ cd pipeline_traffic
 conda install -c conda-forge pygobject
 pip install pipeline_requirements.txt
 python embed_face.py # prepare a demo dataset for the pipeline
+python build_lpr_db.py
 ```
 
 ```sh
@@ -61,7 +62,7 @@ python traffic.py --model_id <id> --algorithm <a>
 
 ```
 
-                                  ____________ face recognition ________
+                                  ____________ face recognition ________         
                                  /                                      \______ knowledge 
                                 /                                       /       retrieval    
 data ----- object detection ---|----- license plate segmentation --- ocr             \ 
@@ -96,19 +97,21 @@ image captioning:
     - Output: text
         
 knowledge retrieval:
-    - GPT 2
-    - Explanation: prompt gpt-2 to give possible misprediction of the give license plate
+    - Database 1
+    - Explanation: query database if exists a license plate, if so, return other info of the vehicle
     - Input: license plate text
-    - Output: 5 possible license plate text
+    - Output: vehicle info text
     
-    - Database
+    - Database 2
     - Explanation: compare the similarity of the detected face with the stored faces
     - Input: face embedding
     - Output: name of the most similar face and confidence score
     
 language model:
     - GPT 2/Grok 2 (now offer two choices)
-    - Input: prompt
+    - Input: 
+        maintain a buffer for each stream
+        query GPT-2/Grok-2 for content summarization
     - Output: text
     
 

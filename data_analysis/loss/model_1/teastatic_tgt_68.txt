@@ -1,0 +1,43 @@
+========= (A) Pearson ==========
+Pearson Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000 -0.035017  0.130646  0.844301        0.481426            0.418555
+loss_2             -0.035017  1.000000  0.015136 -0.078810       -0.048047           -0.050914
+loss_3              0.130646  0.015136  1.000000 -0.001278       -0.125382           -0.134582
+loss_4              0.844301 -0.078810 -0.001278  1.000000        0.618806            0.586962
+targeted_count      0.481426 -0.048047 -0.125382  0.618806        1.000000            0.908740
+targeted_count_log  0.418555 -0.050914 -0.134582  0.586962        0.908740            1.000000
+
+Pearson correlation (loss_i vs. targeted_count):
+loss_1    0.481426
+loss_2   -0.048047
+loss_3   -0.125382
+loss_4    0.618806
+dtype: float64
+
+Pearson correlation (loss_i vs. log(targeted_count+1)):
+loss_1    0.418555
+loss_2   -0.050914
+loss_3   -0.134582
+loss_4    0.586962
+dtype: float64
+
+========= (B) Spearman ==========
+Spearman Correlation Matrix:
+                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
+loss_1              1.000000 -0.042953  0.206945  0.895020        0.454493            0.454493
+loss_2             -0.042953  1.000000  0.011531 -0.074542       -0.055641           -0.055641
+loss_3              0.206945  0.011531  1.000000  0.046202       -0.100102           -0.100102
+loss_4              0.895020 -0.074542  0.046202  1.000000        0.570452            0.570452
+targeted_count      0.454493 -0.055641 -0.100102  0.570452        1.000000            1.000000
+targeted_count_log  0.454493 -0.055641 -0.100102  0.570452        1.000000            1.000000
+
+Spearman correlation (loss_i vs. targeted_count):
+loss_1    0.454493
+loss_2   -0.055641
+loss_3   -0.100102
+loss_4    0.570452
+dtype: float64
+
+========= (C) Kendall’s τ ==========
+Kendall’s τ for loss_1 vs. targeted_count: 0.33869775398662844, p-value=0.0

@@ -67,17 +67,17 @@ class frStream(Process):
             #                    select_largest=True  # Select largest face only
             #                    )
             logger.info("Loading stored embeddings from ./face_embeddings")
-            self.stored_embeddings = {}
-            embeddings_path = "./face_embeddings"
-            for embedding_file in glob.glob(os.path.join(embeddings_path, "*.npy")):
-                basename = os.path.basename(embedding_file)
-                name = basename.rsplit(".", 1)[0]  # Just remove the .npy extension
+            # self.stored_embeddings = {}
+            # embeddings_path = "./face_embeddings"
+            # for embedding_file in glob.glob(os.path.join(embeddings_path, "*.npy")):
+            #     basename = os.path.basename(embedding_file)
+            #     name = basename.rsplit(".", 1)[0]  # Just remove the .npy extension
                     
-                # Load the embedding
-                embedding = np.load(embedding_file)
-                self.stored_embeddings[name] = embedding
+            #     # Load the embedding
+            #     embedding = np.load(embedding_file)
+            #     self.stored_embeddings[name] = embedding
                 
-            logger.info(f"Loaded {len(self.stored_embeddings)} embeddings")
+            # logger.info(f"Loaded {len(self.stored_embeddings)} embeddings")
             # self.facenet.classify = True
             
             logger.info("FR Model loaded and ready")
@@ -103,19 +103,18 @@ class frStream(Process):
                     with torch.no_grad():
                         # to_pil = transforms.ToPILImage()
                         # pil_image = to_pil(request[0])
-                        embeddings = self.facenet(request)
-                        current_embedding = embeddings.cpu().numpy()
+                        embeddings = self.facenet(request).cpu().numpy()
                         
                         # Find the most similar face
-                        best_match, similarity = self.find_most_similar(current_embedding)
+                        # best_match, similarity = self.find_most_similar(current_embedding)
                     
-                        result_string = f"{best_match}|{float(similarity):.4f}"
+                        # result_string = f"{best_match}|{float(similarity):.4f}"
 
                         # predicted_label = embeddings[0].argmax()
                     
-                    self.fr2kr_queue.put(str(result_string))
+                    self.fr2kr_queue.put(embeddings)
                     
-                    del request, embeddings, current_embedding, best_match, similarity, result_string
+                    del request, embeddings
                     torch.cuda.empty_cache()
                     
                 except Empty:
