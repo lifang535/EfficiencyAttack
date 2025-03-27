@@ -178,7 +178,7 @@ class ObjectDetection(Process):
                 print(f"[ObjectDetection] video_id: {request.video_id}, frame_id: {request.frame_id}")
     
     def _infer(self, request):
-        def _preprocess(image_array): # lifang535 add
+        def _preprocess(image_array): # NOTE: cv2.imread() returns BGR image
             image_array = image_array.transpose((2, 0, 1))[::-1]
             image_array = np.ascontiguousarray(image_array)
             image_tensor = torch.from_numpy(image_array).to(self.device).float()
