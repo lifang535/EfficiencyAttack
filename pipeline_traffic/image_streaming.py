@@ -52,7 +52,9 @@ class imgStream(Process):
                 
             logger.info(f"Found {len(paths)} image files")
             
-            for p in tqdm(paths, desc="Processing images"):
+            # for p in tqdm(paths, desc="Processing images"):
+            #     break
+            for p in paths:
                 if self.stop_event.is_set():
                     break
                     
@@ -73,13 +75,15 @@ class imgStream(Process):
             
             # Signal end of stream
             logger.info("Image stream complete, sending end signal")
-            self.img2od_queue.put(None)
             
         except Exception as e:
             logger.error(f"Error in image stream: {str(e)}", exc_info=True)
             self.img2od_queue.put(None)  # Make sure to signal end on error
         finally:
+            self.img2od_queue.put(None) 
             logger.info("Image stream ended")
+            self.shutdown()
+            
     
     def shutdown(self):
         self.stop_event.set()

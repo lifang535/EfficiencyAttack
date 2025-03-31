@@ -45,7 +45,8 @@ def process_batch(
     try:
         torch.cuda.set_device(gpu_id)
         device = torch.device(f"cuda:{gpu_id}")
-        model, image_processor = load_from_pretrained(args.model_id)
+        model, image_processor = load_from_pretrained(args.model_id, 
+                                                     device=device)
         model = model.to(device).eval()
         
         print(f"=============================RUNNING {gpu_id} RUNNING==============================")

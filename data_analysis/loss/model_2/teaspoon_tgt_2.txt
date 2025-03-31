@@ -1,43 +1,43 @@
 ========= (A) Pearson ==========
 Pearson Correlation Matrix:
-                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
-loss_1              1.000000  0.596898  0.239227  0.191115        0.030722            0.090623
-loss_2              0.596898  1.000000  0.049666  0.576854       -0.082118            0.085297
-loss_3              0.239227  0.049666  1.000000 -0.156550       -0.208766           -0.227769
-loss_4              0.191115  0.576854 -0.156550  1.000000        0.190213            0.323414
-targeted_count      0.030722 -0.082118 -0.208766  0.190213        1.000000            0.852611
-targeted_count_log  0.090623  0.085297 -0.227769  0.323414        0.852611            1.000000
+                    loss_1  loss_2  loss_3  loss_4  targeted_count  targeted_count_log
+loss_1                 NaN     NaN     NaN     NaN             NaN                 NaN
+loss_2                 NaN     NaN     NaN     NaN             NaN                 NaN
+loss_3                 NaN     NaN     NaN     NaN             NaN                 NaN
+loss_4                 NaN     NaN     NaN     NaN             NaN                 NaN
+targeted_count         NaN     NaN     NaN     NaN        1.000000            0.832267
+targeted_count_log     NaN     NaN     NaN     NaN        0.832267            1.000000
 
 Pearson correlation (loss_i vs. targeted_count):
-loss_1    0.030722
-loss_2   -0.082118
-loss_3   -0.208766
-loss_4    0.190213
+loss_1   NaN
+loss_2   NaN
+loss_3   NaN
+loss_4   NaN
 dtype: float64
 
 Pearson correlation (loss_i vs. log(targeted_count+1)):
-loss_1    0.090623
-loss_2    0.085297
-loss_3   -0.227769
-loss_4    0.323414
+loss_1   NaN
+loss_2   NaN
+loss_3   NaN
+loss_4   NaN
 dtype: float64
 
 ========= (B) Spearman ==========
 Spearman Correlation Matrix:
-                      loss_1    loss_2    loss_3    loss_4  targeted_count  targeted_count_log
-loss_1              1.000000  0.623489  0.325970 -0.287081        0.138008            0.138008
-loss_2              0.623489  1.000000  0.259746 -0.304207       -0.011418           -0.011418
-loss_3              0.325970  0.259746  1.000000 -0.426807       -0.224866           -0.224866
-loss_4             -0.287081 -0.304207 -0.426807  1.000000        0.439184            0.439184
-targeted_count      0.138008 -0.011418 -0.224866  0.439184        1.000000            1.000000
-targeted_count_log  0.138008 -0.011418 -0.224866  0.439184        1.000000            1.000000
+                    loss_1  loss_2  loss_3  loss_4  targeted_count  targeted_count_log
+loss_1                 NaN     NaN     NaN     NaN             NaN                 NaN
+loss_2                 NaN     NaN     NaN     NaN             NaN                 NaN
+loss_3                 NaN     NaN     NaN     NaN             NaN                 NaN
+loss_4                 NaN     NaN     NaN     NaN             NaN                 NaN
+targeted_count         NaN     NaN     NaN     NaN             1.0                 1.0
+targeted_count_log     NaN     NaN     NaN     NaN             1.0                 1.0
 
 Spearman correlation (loss_i vs. targeted_count):
-loss_1    0.138008
-loss_2   -0.011418
-loss_3   -0.224866
-loss_4    0.439184
+loss_1   NaN
+loss_2   NaN
+loss_3   NaN
+loss_4   NaN
 dtype: float64
 
 ========= (C) Kendall’s τ ==========
-Kendall’s τ for loss_1 vs. targeted_count: 0.09683479070942477, p-value=0.0
+Kendall’s τ for loss_1 vs. targeted_count: nan, p-value=nan

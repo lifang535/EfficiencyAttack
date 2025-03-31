@@ -36,6 +36,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
 class lprStream(Process):
     def __init__(self, od2lpr_queue, lpr2kr_queue, device=None):
         super().__init__(name="LPRStream")
@@ -43,6 +51,7 @@ class lprStream(Process):
         self.lpr2kr_queue = lpr2kr_queue
         self.stop_event = Event()
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model_id = None
         
     def set_config(self, model_id):
         self.model_id = model_id
@@ -53,83 +62,73 @@ class lprStream(Process):
             logger.info("LPR stream started")
             
             logger.info(f"Loading LPR model {self.model_id}")
-            # self.model = ResNetForImageClassification.from_pretrained(self.model_id)
-            # self.image_processor = AutoImageProcessor.from_pretrained(self.model_id, use_fast=True)
-            # self.model.to(self.device)
-            # self.model.eval()
             
+            # Load the license plate segmentation model
             self.deeplabv3 = create_model()
             self.checkpoint = torch.load(self.model_id, map_location='cpu')
             self.deeplabv3.load_state_dict(self.checkpoint['model'])
             self.deeplabv3.eval().to(self.device) 
             
+            # Load OCR model
             self.onnx_lp_ocr = ONNXPlateRecognizer('argentinian-plates-cnn-model', 
-                                                   providers=['CPUExecutionProvider'])
+                                                 providers=['CPUExecutionProvider'])
             logger.info("LPR Model loaded and ready")
-            
+                        
             while not self.stop_event.is_set():
-                try:
+                try:                    
                     data = self.od2lpr_queue.get(timeout=2.0)
                     
                     if data is None:
                         logger.info("Received end signal")
                         break
                     
-                    # legacy code
-                    # if isinstance(data, str) and data == "END OF FRAME":
-                    #     self.lpr2kr_queue.put("END OF FRAME")
-                    #     continue
-                    
-                    # Convert numpy array back to tensor and move to GPU
+                    # Convert numpy array to tensor and move to device
                     request = torch.from_numpy(data).to(self.device)
-                    # request = request.unsqueeze(0)  # Add batch dimension
                     
                     with torch.no_grad():
-                        # lp segment
+                        # License plate segmentation
                         output = self.pred(request, self.deeplabv3)
                         plate_tensor = self.post_process(output, request.detach().clone())
                         
-                        # lp ocr
+                        # License plate OCR
                         result = self.ocr(plate_tensor)
-                        # print(result)
-                        # raise ValueError("Stop here")
+                    
                     self.lpr2kr_queue.put(result[0])
                     
+                    # Clean up resources
                     del request, output, plate_tensor, result
                     torch.cuda.empty_cache()
                     
                 except Empty:
-                    logger.debug("od2lpr Queue timeout, checking if should continue")
                     continue
                 except Exception as e:
                     logger.error(f"Error processing od2lpr Queue: {str(e)}", exc_info=True)
-                    
-            self.lpr2kr_queue.put(None)
             
         except Exception as e:
             logger.error(f"Error in LPR stream: {str(e)}", exc_info=True)
-            self.lpr2kr_queue.put(None)
         finally:
+            self.lpr2kr_queue.put(None)  # Signal the next process
             logger.info("LPR stream ended")
+            self.shutdown()
             
             
     def shutdown(self):
-        self.stop_event.set()  
-
+        self.stop_event.set()
 
     def pred(self, image, model):
+        """Run prediction on the segmentation model"""
         if image.dim() == 3:
             image = image.unsqueeze(0)
-        image = image.to(self.device)
         output = model(image)['out'][0]
         return output
     
-    
     def post_process(self, output, request, threshold=0.1):
+        """Extract the license plate region based on segmentation output"""
         output = (output > threshold).type(torch.IntTensor)
         output = output.cpu().numpy()[0]
         result = np.where(output > 0)
         coords = list(zip(result[0], result[1]))
+        
         if coords:
             y_coords, x_coords = zip(*coords)
             min_x, max_x = min(x_coords), max(x_coords)
@@ -140,25 +139,33 @@ class lprStream(Process):
         else:
             return request
             
-            
-    def ocr(self, tensor, save_dir=None):
-        if save_dir is None:
-            save_dir = time.strftime("%Y%m%d-%H%M%S")
+    def ocr(self, tensor):
+        """Perform OCR on the license plate tensor"""
+        # Create a temporary directory with timestamp
+        save_dir = f"tmp_lpr_{time.strftime('%Y%m%d-%H%M%S')}"
         os.makedirs(save_dir, exist_ok=True)
-        dest_dir = os.path.join(save_dir, "lpr.png")
+        dest_path = os.path.join(save_dir, "lpr.png")
 
+        # Convert tensor to image
         if tensor.dim() == 4:
             tensor = tensor.squeeze(0)
-            np_image = tensor.cpu().numpy().transpose(1, 2, 0)
-            if np_image.max() <= 1.0:
-                np_image = (np_image * 255).astype(np.uint8)
-            else:
-                np_image = np_image.astype(np.uint8)
+        np_image = tensor.cpu().numpy().transpose(1, 2, 0)
+        
+        # Normalize image values if needed
+        if np_image.max() <= 1.0:
+            np_image = (np_image * 255).astype(np.uint8)
+        else:
+            np_image = np_image.astype(np.uint8)
+            
+        # Save, process, and clean up
         pil_image = Image.fromarray(np_image)
-        pil_image.save(dest_dir)
-        result = self.onnx_lp_ocr.run(dest_dir)
-        os.remove(dest_dir)
+        pil_image.save(dest_path)
+        result = self.onnx_lp_ocr.run(dest_path)
+        
+        # Clean up temporary files
+        os.remove(dest_path)
         os.rmdir(save_dir)
+        
         return result
         
 

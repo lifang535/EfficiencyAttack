@@ -21,6 +21,7 @@ from transformers import AutoModelForCausalLM # microsoft/git-base
 from transformers import AutoProcessor
 from torchvision import transforms
 
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +37,7 @@ class capStream(Process):
         self.cap2lm_queue = cap2lm_queue
         self.stop_event = Event()
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model_id = None
     
     def set_config(self, model_id):
         self.model_id = model_id
@@ -46,66 +48,81 @@ class capStream(Process):
             logger.info("CAP stream started")
             
             logger.info(f"Loading CAP model {self.model_id}")
-            # self.model = ResNetForImageClassification.from_pretrained(self.model_id)
-            # self.image_processor = AutoImageProcessor.from_pretrained(self.model_id, use_fast=True)
-            # self.model.to(self.device)
-            # self.model.eval()
+            # Initialize image transformation pipeline
+            self.resize_transform = transforms.Compose([
+                transforms.Resize((224, 224)),
+            ])
             
-            self.resize_transform = transforms.Compose([transforms.Resize((224, 224)),])
+            # Load the processor and model
             self.processor = AutoProcessor.from_pretrained(self.model_id, use_fast=True)
             self.model = AutoModelForCausalLM.from_pretrained(self.model_id).to(self.device) 
             self.model.eval()
             logger.info("CAP Model loaded and ready")
-            
+                        
             while not self.stop_event.is_set():
                 try:
+                    # Get data from the queue with timeout
                     data = self.od2cap_queue.get(timeout=2.0)
                     
                     if data is None:
                         logger.info("Received end signal")
                         break
                     
-                    # Convert numpy array back to tensor and move to GPU
+                    # Convert numpy array to tensor and move to device
                     request = torch.from_numpy(data).to(self.device)
-                    # request = request.unsqueeze(0)  
                     
+                    # Generate caption
                     with torch.no_grad():
-                        # logits = self.model(request).logits
-                        # caption = logits.argmax(-1).item()
                         caption = self.inference(request)
                         
+                    # Send caption to language model queue
                     self.cap2lm_queue.put(str(caption))
                     
+                    # Clean up resources
                     del request, caption
                     torch.cuda.empty_cache()
                     
                 except Empty:
-                    logger.debug("od2cap Queue timeout, checking if should continue")
                     continue
                 except Exception as e:
                     logger.error(f"Error processing od2cap Queue: {str(e)}", exc_info=True)
-                    
-            self.cap2lm_queue.put(None)
             
         except Exception as e:
             logger.error(f"Error in CAP stream: {str(e)}", exc_info=True)
-            self.cap2lm_queue.put(None)
         finally:
+            # Always signal completion to the next process in the pipeline
+            self.cap2lm_queue.put(None)
             logger.info("CAP stream ended")
+            self.shutdown()
+            
             
     def shutdown(self):
+        """Signal the process to stop"""
         self.stop_event.set()
         
     def inference(self, image):
+        """Generate a caption for the given image
+        
+        Args:
+            image: PIL Image or torch.Tensor containing the image data
+            
+        Returns:
+            str: Generated caption for the image
+        """
         if isinstance(image, Image.Image):
+            # Process PIL Image
             inputs = self.processor(images=image, return_tensors="pt").to(self.device)
-            pixel_values = inputs.pixel_values.to(self.device)
-        elif isinstance(image, torch.Tensor): 
+            pixel_values = inputs.pixel_values
+        elif isinstance(image, torch.Tensor):
+            # Process torch Tensor directly
             pixel_values = image.clone()
         else:
-            raise TypeError("input of the ms-captioning model has to be an PIL Image or a torch.Tensor")
-        # inputs = self.processor(images=image, return_tensors="pt").to(self.device)
+            raise TypeError("Input to the captioning model must be a PIL Image or a torch.Tensor")
+        
+        # Resize the image to the required dimensions
         pixel_values = self.resize_transform(pixel_values)
+        
+        # Generate caption
         generated_ids = self.model.generate(pixel_values=pixel_values, max_length=50)
         generated_caption = self.processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
         

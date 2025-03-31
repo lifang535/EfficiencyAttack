@@ -52,6 +52,13 @@ def get_paths(base_path, model_id=None, algorithm=None, target_idx=None):
             if "tgt_none" in p and "tea" in p:
                 paths.append(p)
         return paths
+    elif algorithm == "targeted":
+        print(f"Filtering for targeted attacks on Teaspoon")
+        paths = []
+        for p in levels[1]:
+            if "tgt_none" not in p and "tea" in p:
+                paths.append(p)
+        return paths
     elif target_idx == True:
 
         print(f"Filtering for target index: {str(target_idx)}")
@@ -124,7 +131,7 @@ def baseline():
             for p in paths:
                 json_p = get_json_paths(p)[:100]
                 counter = torch.zeros(200, 5)
-                for jp in tqdm(json_p, desc="Processing JSON files"):
+                for jp in tqdm(json_p, desc=f"Processing JSON files: {p}"):
                     jp_counter = process_json_label(jp)
                     counter += jp_counter
                 
@@ -208,7 +215,59 @@ def non_tgt():
             for file_path, error in problematic_files:
                 error_log.write(f"{file_path}: {error}\n")
 
+def tea_tgt():
 
+    paths = get_paths(base_path,
+                    model_id=None,
+                    algorithm="targeted",
+                    target_idx=None)
+    
+    problematic_files = []
+    with open("tea_tgt_results.txt", "a") as f:
+        for p in paths:
+            json_p = get_json_paths(p)[:100]
+            counter = torch.zeros(200, 5)
+            for jp in tqdm(json_p, desc="Processing JSON files"):
+                try:
+                    jp_counter = process_json_label(jp)
+                    counter += jp_counter
+                except Exception as e:
+                    problematic_files.append((jp, str(e)))
+                    print(f"Error processing {jp}: {e}")
+                    continue
+            
+            k = 10
+            
+            # table header
+            f.write(f"p: {p}\n")
+            f.write("-" * 50 + "\n")
+            # fixed-width formatting
+            f.write(f"{'Column':<8} | {'Rank':<6} | {'Position':<10} | {'Value':<12}\n")
+            f.write("-" * 50 + "\n")
+            
+            col_names = ['person', 'car', 'microwave oven', 'giraffe', 'person + car']
+            
+            # top k values for each column
+            for i in range(5):
+                column_data = counter[:, i]
+                top_values, top_indices = torch.topk(column_data, k)
+                
+                # write top k values to file
+                for rank, (val, idx) in enumerate(zip(top_values.tolist(), top_indices.tolist()), 1):
+                    f.write(f"{col_names[i]:<8} | {rank:<6} | {idx:<10} | {val:<12.4f}\n")
+                
+                # new line
+                f.write("\n")
+            
+            # add space between tables
+            f.write("=" * 50 + "\n\n")
+            
+    if problematic_files:
+        with open("problematic_files.log", "w") as error_log:
+            error_log.write("Files that couldn't be processed:\n")
+            for file_path, error in problematic_files:
+                error_log.write(f"{file_path}: {error}\n")
+                
 def loss(path_to_jsons):
     
     if "0" in path_to_jsons:
@@ -279,6 +338,7 @@ def loss(path_to_jsons):
 
     # ========== Write to file ==========
     name = os.path.join("./loss", os.path.basename(os.path.dirname(path_to_jsons)), os.path.basename(path_to_jsons) + ".txt")
+    os.makedirs(os.path.join("./loss", os.path.basename(os.path.dirname(path_to_jsons))), exist_ok=True)
     with open(name, 'w', encoding='utf-8') as f:
         f.write("".join(output_lines))
 
@@ -345,8 +405,8 @@ def vis(path_list):
 
 if __name__ == "__main__":
     # non_tgt()
-    # baseline()
-    
+    baseline()
+    tea_tgt()
     paths = get_paths(base_path,
                     model_id=None,
                     algorithm=None,
@@ -354,7 +414,8 @@ if __name__ == "__main__":
     print("Processing : ", len(paths))
     for p in paths:
         loss(p)
-        # vis(p)
+        
+        
     pass
 
             

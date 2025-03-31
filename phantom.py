@@ -21,16 +21,8 @@ epsilon = 60
 
 class Phantom(BaseAttack):
     
-    def __init__(self, 
-                 model, 
-                 image_processor, 
-                 it_num, 
-                 conf_thres = 0.25, 
-                 target_idx = None, 
-                 output_dir = None, 
-                 device = None):
-        
-        super().__init__(model, image_processor, it_num, conf_thres, target_idx, output_dir, device)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.current_train_loss = 0.0
         self.current_max_objects_loss = 0.0
         self.current_orig_classification_loss = 0.0
@@ -79,7 +71,7 @@ class Phantom(BaseAttack):
         data_grad = self.loss_function_gradient(applied_patch, images, adv_patch) 
         sign_data_grad = data_grad.sign()
         perturbed_patch = adv_patch - epsilon * sign_data_grad
-        perturbed_patch_c = torch.clamp(perturbed_patch, 0, 1).detach()
+        perturbed_patch_c = torch.clamp(perturbed_patch, -0.04, 0.04).detach()
         return perturbed_patch_c, applied_patch
     
     def loss_function_gradient(self, applied_patch, images, adv_patch):

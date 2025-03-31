@@ -52,7 +52,8 @@ def get_model_name(ckpt):
             "Please choose a valid ID or checkpoint name."
         )
 
-def load_from_pretrained(ckpt=None, device=None):
+def load_from_pretrained(ckpt=None, num_q=1000, device=None):
+    print(f"loading model on device: {device}")
     """Load a model and image processor from the model zoo."""
     ckpt, ckpt_id = get_model_name(ckpt)
 
@@ -68,6 +69,7 @@ def load_from_pretrained(ckpt=None, device=None):
 
     image_processor = RTDetrImageProcessor.from_pretrained(ckpt)
     model = model.eval()
+    model.config.num_queries = num_q
     return model, image_processor
         
 if __name__ == "__main__":
@@ -77,7 +79,7 @@ if __name__ == "__main__":
     thres = 0.25
     num_q = 1000
     for i in range(3):
-        model, image_processor = load_from_pretrained(i, device)
+        model, image_processor = load_from_pretrained(i, device=device)
         model.config.num_queries = num_q
         
         input = image_processor(images=image, return_tensors="pt").to(device)
@@ -91,7 +93,8 @@ if __name__ == "__main__":
                                                             target_sizes = target_size)[0]
         scores = output["scores"]
         print(f"== * ==")
-        print(f"model ID {i}, \nshape: {logits.shape}, num_class{model.config}")
-        print(f"model ID {i}, \nshape: {scores.shape}")
+        # print(f"model ID {i}, \nshape: {logits.shape}, num_class{model.config}")
+        # print(f"model ID {i}, \nshape: {scores.shape}")
+        print(model.class_embed if hasattr(model, 'class_embed') else "类别嵌入层不可直接访问")
         print(f"== * ==")
     

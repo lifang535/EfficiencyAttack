@@ -51,9 +51,11 @@ class odStream(Process):
             self.model.eval()
             logger.info("OD Model loaded and ready")
             
-            # Process images
+            # Process images            
+            
             while not self.stop_event.is_set():
                 try:
+                                        
                     # Get next image with timeout
                     data = self.img2od_queue.get(timeout=2.0)
                     
@@ -153,10 +155,6 @@ class odStream(Process):
                     continue
                 except Exception as e:
                     logger.error(f"Error processing img2od Queue: {str(e)}", exc_info=True)
-            
-            # Signal end to downstream processes
-            for q in [self.od2fr_queue, self.od2lpr_queue, self.od2cap_queue]:
-                q.put(None)
                 
         except Exception as e:
             logger.error(f"Error in OD stream: {str(e)}", exc_info=True)
@@ -164,7 +162,11 @@ class odStream(Process):
             for q in [self.od2fr_queue, self.od2lpr_queue, self.od2cap_queue]:
                 q.put(None)
         finally:
+            for q in [self.od2fr_queue, self.od2lpr_queue, self.od2cap_queue]:
+                q.put(None)
             logger.info("OD stream ended")
+            self.shutdown()
+            
     
     def shutdown(self):
         self.stop_event.set()

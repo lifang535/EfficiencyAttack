@@ -19,6 +19,12 @@ export TRANSFORMERS_CACHE="~/huggingface_cache"
 git clone git@github.com:<replace_this_with_the_actual_name_of_repo>.git && cd <replace_this_with_the_actual_name_of_repo>
 git checkout teaspoon
 pip install -r requirements.txt
+
+# if:
+# ImportError: Can't determine version for bottleneck
+conda update pandas
+conda remove bottleneck
+conda install bottleneck
 ```
 
 ```sh

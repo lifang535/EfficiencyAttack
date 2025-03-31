@@ -57,12 +57,12 @@ class Overload(BaseAttack):
     def update_bx(self):  
 
         loss2 = 40*torch.norm(self.bx, p=2)
-        target = torch.ones_like(self.scores)
-        loss3 = F.mse_loss(self.scores, target, reduction='sum')
+        target = torch.ones_like(self.prob)
+        loss3 = F.mse_loss(self.prob, target, reduction='sum')
         loss = loss3+2*(10000-loss2)
         loss.requires_grad_(True)
         loss.backward(retain_graph=True)
-        self.bx.data = torch.clamp(-3.5 * self.mask * self.bx.grad+ self.bx.data, min=-0.2, max=0.2)
+        self.bx.data = torch.clamp(-3.5 * self.mask * self.bx.grad+ self.bx.data, min=-0.04, max=0.04)
 
 
 def single_test(num_q = 1000, 

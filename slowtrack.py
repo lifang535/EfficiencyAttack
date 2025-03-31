@@ -44,16 +44,16 @@ class SlowTrack(BaseAttack):
         per_num_m = (50*90)/max_tracker_num
         per_num_s = (100*180)/max_tracker_num
 
-        sel_scores_b = self.scores[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
-        sel_scores_m = self.scores[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
-        sel_scores_s = self.scores[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
+        sel_scores_b = self.prob[int(100*180+50*90+(strategy)*per_num_b):int(100*180+50*90+(strategy+1)*per_num_b)]
+        sel_scores_m = self.prob[int(100*180+(strategy)*per_num_m):int(100*180+(strategy+1)*per_num_m)]
+        sel_scores_s = self.prob[int((strategy)*per_num_s):int((strategy+1)*per_num_s)]
 
         sel_dets = torch.cat((sel_scores_b, sel_scores_m, sel_scores_s), dim=0)
         targets = torch.ones_like(sel_dets)
         loss1 = 10*(F.mse_loss(sel_dets, targets, reduction='sum'))
         loss2 = 40*torch.norm(self.bx, p=2) 
-        targets = torch.ones_like(self.scores) 
-        loss3 = 1.0*(F.mse_loss(self.scores, targets, reduction='sum') )
+        targets = torch.ones_like(self.prob) 
+        loss3 = 1.0*(F.mse_loss(self.prob, targets, reduction='sum') )
         loss = loss1+loss2+loss3
         
         loss.requires_grad_(True)
@@ -61,7 +61,7 @@ class SlowTrack(BaseAttack):
         loss.backward(retain_graph=True)
         
         self.bx.grad = self.bx.grad / (torch.norm(self.bx.grad,p=2) + 1e-20)
-        self.bx.data = -1.5 * self.bx.grad + self.bx.data
+        self.bx.data = torch.clamp(-1.5 * self.bx.grad + self.bx.data, min=-0.04, max=0.04)
         
         return self.bx
     

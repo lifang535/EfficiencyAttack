@@ -56,6 +56,11 @@ class BaseAttack:
         
         self.buffer = []
         
+        self._loss1 = 0.0
+        self._loss2 = 0.0
+        self._loss3 = 0.0
+        self._loss4 = 0.0
+        
     def update_buffer(self, tensor, it, frequency=None):
         # frequency: how often to save the image
         # if frequency is 5, then save the image every 5 iterations:
@@ -149,17 +154,18 @@ class BaseAttack:
         self.target_size = [self.img_tensor.shape[2:] for _ in range(1)]
 
     
-    def inference(self, input):
+    def inference(self, input_t):
         """
             input is the denorm_img_tensor, or (denorm_img_tensor + bx)
         """
         start_time = time.perf_counter()
-        self.output = self.model(input)
+        self.output = self.model(input_t)
         end_time = time.perf_counter()
         self.elapsed_time = round((end_time - start_time) * 1000, 2)
         
         self.logits = self.output.logits[0]
-        self.prob = F.softmax(self.logits, dim=-1)  
+        # self.prob = F.softmax(self.logits, dim=-1)
+        self.prob = F.sigmoid(self.logits)
         self.scores, self.labels, self.boxes = self.parse_output()
         self.combined = torch.cat((self.boxes, 
                                    self.scores.unsqueeze(1), 

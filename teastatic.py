@@ -16,7 +16,7 @@ from model_zoo import load_from_pretrained
 from torch.optim import Adam
 import math
 
-learning_rate = 0.001
+learning_rate = 0.0001
 
 class TeaStatic(BaseAttack):
     
@@ -54,21 +54,26 @@ class TeaStatic(BaseAttack):
         
         loss2 = 40*torch.norm(self.bx, p=2)
         
-        loss3 = 100*torch.sum(sel_aaa)
+        loss3 = 20 *torch.sum(sel_aaa)
         
         cls_loss_target_tensor = self.cls_loss_target()
-        loss4 = 1.0 * F.mse_loss(self.logits, cls_loss_target_tensor, reduction='sum')
+        loss4 = 1e-4 * F.mse_loss(self.logits, cls_loss_target_tensor, reduction='sum')
         
         alpha1, alpha2, alpha3 = 1,1,1
         # total_loss = alpha3 * loss2 + alpha2 * loss3 + alpha1 * loss1 + loss4
         total_loss = alpha3 * loss2 + alpha2 * loss3 + alpha1 * loss4
         total_loss.requires_grad_(True)
         
+        # clear grad
         self.adam_opt.zero_grad()
         total_loss.backward(retain_graph=True)
-        self.bx.grad = self.bx.grad / (torch.norm(self.bx.grad,p=2) + 1e-20)
-        self.bx.data = - 1.5 * self.bx.grad+ self.bx.data
         
+        # use adam to update
+        self.adam_opt.step()
+        
+        with torch.no_grad():
+            self.bx.data.clamp_(-0.04, 0.04)  
+            
         self.clone_loss(loss1, loss2, loss3, loss4)
         return self.bx
         

@@ -6,7 +6,7 @@ from image_captioning import capStream
 from knowledge_retrieval import krStream
 from language_model import lmStream
 from pipeline_utils import clean_up
-
+from queue_watch import QueueWatch
 
 from multiprocessing import Process, Queue, Event
 from queue import Empty
@@ -86,6 +86,15 @@ if __name__ == "__main__":
     kr_stream = krStream(fr2kr, lpr2kr, kr2lm, device)
     lm_stream = lmStream(cap2lm, kr2lm, device)
     
+    queue_watch = QueueWatch({"object detection": img2od, 
+                              "face recognition": od2fr, 
+                              "license plate recognition": od2lpr, 
+                              "captioning": od2cap, 
+                              "knowledge retrieval 1": fr2kr, 
+                              "knowledge retrieval 2": lpr2kr,
+                              "language model 1": cap2lm,
+                              "language model 2": kr2lm})
+    
     img_stream.set_config(folder_path=data_path, fps=30)
     od_stream.set_config(model_id=args.model_id)
     fr_stream.set_config(model_id="vggface2") # microsoft/resnet-101
@@ -94,44 +103,19 @@ if __name__ == "__main__":
     kr_stream.set_config(model_id="gpt2")
     lm_stream.set_config(model_id="gpt2")
     
-    processes = [img_stream, od_stream, fr_stream, lpr_stream, cap_stream, kr_stream, lm_stream]
+    processes = [img_stream, od_stream, fr_stream, lpr_stream, cap_stream, kr_stream, lm_stream, queue_watch]
     queues = [img2od, od2fr, od2lpr, od2cap, fr2kr, lpr2kr, kr2lm, cap2lm]
     
 
     logger.info("Starting processes")
-    od_stream.start()  # Start OD process first
-    time.sleep(0.5)    # Small delay
-    img_stream.start() # Then start image stream
-    time.sleep(0.5)    # Small delay
-    fr_stream.start()
-    lpr_stream.start()
-    cap_stream.start()
-    time.sleep(0.5)
-    kr_stream.start()
-    time.sleep(0.5)
-    lm_stream.start()
+    for p in processes:
+        p.start()
     
     try:
         logger.info("Pipeline running")
         
-        # Wait for processes to complete
-        logger.info("Waiting for image stream to complete")
-        img_stream.join()
-        logger.info("Image stream completed")
-        
-        # Give OD stream time to process any remaining items
-        logger.info("Waiting for OD stream to complete")
-        od_stream.join(timeout=36000.0)
-        if od_stream.is_alive():
-            logger.warning("OD stream didn't complete in time, shutting down")
-        else:
-            logger.info("OD stream completed")
-            
-        fr_stream.join()
-        lpr_stream.join()
-        cap_stream.join()
-        kr_stream.join()
-        lm_stream.join()
+        for p in processes:
+            p.join()
         
         logger.info("All processes completed")
         

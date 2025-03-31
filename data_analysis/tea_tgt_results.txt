@@ -1,0 +1,671 @@
+p: ../results/model_2/teaspoon_tgt_0_2
+--------------------------------------------------
+Column   | Rank   | Position   | Value       
+--------------------------------------------------
+person   | 1      | 165        | 46953.0000  
+person   | 2      | 141        | 46917.0000  
+person   | 3      | 151        | 46699.0000  
+person   | 4      | 139        | 46579.0000  
+person   | 5      | 161        | 46563.0000  
+person   | 6      | 159        | 46507.0000  
+person   | 7      | 137        | 46358.0000  
+person   | 8      | 157        | 46322.0000  
+person   | 9      | 167        | 46106.0000  
+person   | 10     | 192        | 46068.0000  
+
+car      | 1      | 195        | 57656.0000  
+car      | 2      | 193        | 57411.0000  
+car      | 3      | 160        | 56539.0000  
+car      | 4      | 138        | 56150.0000  
+car      | 5      | 181        | 55745.0000  
+car      | 6      | 164        | 55709.0000  
+car      | 7      | 191        | 55708.0000  
+car      | 8      | 185        | 55547.0000  
+car      | 9      | 183        | 55490.0000  
+car      | 10     | 142        | 55379.0000  
+
+microwave oven | 1      | 0          | 7.0000      
+microwave oven | 2      | 1          | 1.0000      
+microwave oven | 3      | 2          | 1.0000      
+microwave oven | 4      | 3          | 1.0000      
+microwave oven | 5      | 4          | 1.0000      
+microwave oven | 6      | 133        | 0.0000      
+microwave oven | 7      | 138        | 0.0000      
+microwave oven | 8      | 134        | 0.0000      
+microwave oven | 9      | 135        | 0.0000      
+microwave oven | 10     | 136        | 0.0000      
+
+giraffe  | 1      | 14         | 19.0000     
+giraffe  | 2      | 7          | 18.0000     
+giraffe  | 3      | 39         | 17.0000     
+giraffe  | 4      | 75         | 17.0000     
+giraffe  | 5      | 71         | 17.0000     
+giraffe  | 6      | 55         | 16.0000     
+giraffe  | 7      | 44         | 16.0000     
+giraffe  | 8      | 42         | 15.0000     
+giraffe  | 9      | 49         | 15.0000     
+giraffe  | 10     | 85         | 15.0000     
+
+person + car | 1      | 190        | 99568.0000  
+person + car | 2      | 182        | 99521.0000  
+person + car | 3      | 199        | 99508.0000  
+person + car | 4      | 194        | 99469.0000  
+person + car | 5      | 183        | 99459.0000  
+person + car | 6      | 189        | 99436.0000  
+person + car | 7      | 193        | 99430.0000  
+person + car | 8      | 195        | 99424.0000  
+person + car | 9      | 184        | 99412.0000  
+person + car | 10     | 192        | 99399.0000  
+
+==================================================
+
+p: ../results/model_2/teaspoon_tgt_2
+--------------------------------------------------
+Column   | Rank   | Position   | Value       
+--------------------------------------------------
+person   | 1      | 0          | 759.0000    
+person   | 2      | 8          | 574.0000    
+person   | 3      | 3          | 547.0000    
+person   | 4      | 5          | 539.0000    
+person   | 5      | 7          | 537.0000    
+person   | 6      | 1          | 536.0000    
+person   | 7      | 10         | 519.0000    
+person   | 8      | 6          | 499.0000    
+person   | 9      | 4          | 495.0000    
+person   | 10     | 2          | 475.0000    
+
+car      | 1      | 194        | 93096.0000  
+car      | 2      | 199        | 93054.0000  
+car      | 3      | 196        | 92909.0000  
+car      | 4      | 195        | 92821.0000  
+car      | 5      | 189        | 92791.0000  
+car      | 6      | 197        | 92624.0000  
+car      | 7      | 191        | 92535.0000  
+car      | 8      | 185        | 92505.0000  
+car      | 9      | 193        | 92504.0000  
+car      | 10     | 183        | 92473.0000  
+
+microwave oven | 1      | 0          | 7.0000      
+microwave oven | 2      | 1          | 4.0000      
+microwave oven | 3      | 16         | 3.0000      
+microwave oven | 4      | 12         | 3.0000      
+microwave oven | 5      | 9          | 3.0000      
+microwave oven | 6      | 13         | 3.0000      
+microwave oven | 7      | 31         | 3.0000      
+microwave oven | 8      | 21         | 3.0000      
+microwave oven | 9      | 19         | 2.0000      
+microwave oven | 10     | 22         | 2.0000      
+
+giraffe  | 1      | 0          | 11.0000     
+giraffe  | 2      | 58         | 10.0000     
+giraffe  | 3      | 4          | 10.0000     
+giraffe  | 4      | 11         | 7.0000      
+giraffe  | 5      | 25         | 6.0000      
+giraffe  | 6      | 30         | 5.0000      
+giraffe  | 7      | 24         | 5.0000      
+giraffe  | 8      | 179        | 5.0000      
+giraffe  | 9      | 146        | 4.0000      
+giraffe  | 10     | 192        | 4.0000      
+
+person + car | 1      | 194        | 93369.0000  
+person + car | 2      | 199        | 93320.0000  
+person + car | 3      | 196        | 93160.0000  
+person + car | 4      | 189        | 93097.0000  
+person + car | 5      | 195        | 93077.0000  
+person + car | 6      | 197        | 92898.0000  
+person + car | 7      | 191        | 92789.0000  
+person + car | 8      | 185        | 92773.0000  
+person + car | 9      | 193        | 92741.0000  
+person + car | 10     | 183        | 92738.0000  
+
+==================================================
+
+p: ../results/model_2/teaspoon_tgt_0
+--------------------------------------------------
+Column   | Rank   | Position   | Value       
+--------------------------------------------------
+person   | 1      | 198        | 90423.0000  
+person   | 2      | 195        | 90232.0000  
+person   | 3      | 197        | 90104.0000  
+person   | 4      | 199        | 90102.0000  
+person   | 5      | 194        | 89951.0000  
+person   | 6      | 196        | 89821.0000  
+person   | 7      | 183        | 89795.0000  
+person   | 8      | 193        | 89674.0000  
+person   | 9      | 190        | 89629.0000  
+person   | 10     | 184        | 89536.0000  
+
+car      | 1      | 195        | 193.0000    
+car      | 2      | 192        | 191.0000    
+car      | 3      | 163        | 189.0000    
+car      | 4      | 198        | 189.0000    
+car      | 5      | 130        | 187.0000    
+car      | 6      | 189        | 185.0000    
+car      | 7      | 182        | 185.0000    
+car      | 8      | 183        | 184.0000    
+car      | 9      | 165        | 183.0000    
+car      | 10     | 144        | 183.0000    
+
+microwave oven | 1      | 0          | 7.0000      
+microwave oven | 2      | 1          | 3.0000      
+microwave oven | 3      | 3          | 2.0000      
+microwave oven | 4      | 2          | 2.0000      
+microwave oven | 5      | 6          | 1.0000      
+microwave oven | 6      | 15         | 1.0000      
+microwave oven | 7      | 5          | 1.0000      
+microwave oven | 8      | 4          | 1.0000      
+microwave oven | 9      | 134        | 0.0000      
+microwave oven | 10     | 135        | 0.0000      
+
+giraffe  | 1      | 55         | 69.0000     
+giraffe  | 2      | 67         | 62.0000     
+giraffe  | 3      | 13         | 61.0000     
+giraffe  | 4      | 71         | 61.0000     
+giraffe  | 5      | 69         | 58.0000     
+giraffe  | 6      | 31         | 57.0000     
+giraffe  | 7      | 111        | 57.0000     
+giraffe  | 8      | 49         | 56.0000     
+giraffe  | 9      | 21         | 55.0000     
+giraffe  | 10     | 63         | 54.0000     
+
+person + car | 1      | 198        | 90612.0000  
+person + car | 2      | 195        | 90425.0000  
+person + car | 3      | 199        | 90274.0000  
+person + car | 4      | 197        | 90271.0000  
+person + car | 5      | 194        | 90102.0000  
+person + car | 6      | 196        | 90001.0000  
+person + car | 7      | 183        | 89979.0000  
+person + car | 8      | 193        | 89848.0000  
+person + car | 9      | 190        | 89792.0000  
+person + car | 10     | 192        | 89700.0000  
+
+==================================================
+
+p: ../results/model_0/teastatic_tgt_0
+--------------------------------------------------
+Column   | Rank   | Position   | Value       
+--------------------------------------------------
+person   | 1      | 3          | 1516.0000   
+person   | 2      | 5          | 1352.0000   
+person   | 3      | 2          | 1315.0000   
+person   | 4      | 4          | 1313.0000   
+person   | 5      | 6          | 1160.0000   
+person   | 6      | 7          | 1086.0000   
+person   | 7      | 8          | 1020.0000   
+person   | 8      | 1          | 837.0000    
+person   | 9      | 9          | 826.0000    
+person   | 10     | 10         | 691.0000    
+
+car      | 1      | 3          | 279.0000    
+car      | 2      | 5          | 277.0000    
+car      | 3      | 4          | 274.0000    
+car      | 4      | 2          | 233.0000    
+car      | 5      | 11         | 219.0000    
+car      | 6      | 10         | 213.0000    
+car      | 7      | 15         | 208.0000    
+car      | 8      | 8          | 208.0000    
+car      | 9      | 6          | 204.0000    
+car      | 10     | 13         | 201.0000    
+
+microwave oven | 1      | 2          | 5.0000      
+microwave oven | 2      | 0          | 5.0000      
+microwave oven | 3      | 1          | 3.0000      
+microwave oven | 4      | 4          | 3.0000      
+microwave oven | 5      | 169        | 2.0000      
+microwave oven | 6      | 9          | 2.0000      
+microwave oven | 7      | 6          | 2.0000      
+microwave oven | 8      | 103        | 1.0000      
+microwave oven | 9      | 52         | 1.0000      
+microwave oven | 10     | 105        | 1.0000      
+
+giraffe  | 1      | 1          | 6.0000      
+giraffe  | 2      | 0          | 4.0000      
+giraffe  | 3      | 3          | 3.0000      
+giraffe  | 4      | 2          | 2.0000      
+giraffe  | 5      | 24         | 1.0000      
+giraffe  | 6      | 23         | 1.0000      
+giraffe  | 7      | 20         | 1.0000      
+giraffe  | 8      | 17         | 1.0000      
+giraffe  | 9      | 16         | 1.0000      
+giraffe  | 10     | 32         | 1.0000      
+
+person + car | 1      | 3          | 1795.0000   
+person + car | 2      | 5          | 1629.0000   
+person + car | 3      | 4          | 1587.0000   
+person + car | 4      | 2          | 1548.0000   
+person + car | 5      | 6          | 1364.0000   
+person + car | 6      | 7          | 1281.0000   
+person + car | 7      | 8          | 1228.0000   
+person + car | 8      | 9          | 1009.0000   
+person + car | 9      | 1          | 961.0000    
+person + car | 10     | 10         | 904.0000    
+
+==================================================
+
+p: ../results/model_0/teaspoon_tgt_0_2
+--------------------------------------------------
+Column   | Rank   | Position   | Value       
+--------------------------------------------------
+person   | 1      | 182        | 20544.0000  
+person   | 2      | 186        | 20337.0000  
+person   | 3      | 199        | 20197.0000  
+person   | 4      | 177        | 20144.0000  
+person   | 5      | 192        | 20142.0000  
+person   | 6      | 179        | 19992.0000  
+person   | 7      | 195        | 19928.0000  
+person   | 8      | 188        | 19721.0000  
+person   | 9      | 175        | 19456.0000  
+person   | 10     | 189        | 19426.0000  
+
+car      | 1      | 187        | 80470.0000  
+car      | 2      | 185        | 78660.0000  
+car      | 3      | 178        | 78577.0000  
+car      | 4      | 194        | 78249.0000  
+car      | 5      | 183        | 78033.0000  
+car      | 6      | 193        | 78004.0000  
+car      | 7      | 190        | 77818.0000  
+car      | 8      | 197        | 77789.0000  
+car      | 9      | 181        | 77776.0000  
+car      | 10     | 176        | 77708.0000  
+
+microwave oven | 1      | 0          | 5.0000      
+microwave oven | 2      | 1          | 2.0000      
+microwave oven | 3      | 22         | 2.0000      
+microwave oven | 4      | 18         | 2.0000      
+microwave oven | 5      | 58         | 2.0000      
+microwave oven | 6      | 2          | 2.0000      
+microwave oven | 7      | 39         | 1.0000      
+microwave oven | 8      | 36         | 1.0000      
+microwave oven | 9      | 35         | 1.0000      
+microwave oven | 10     | 45         | 1.0000      
+
+giraffe  | 1      | 34         | 35.0000     
+giraffe  | 2      | 142        | 29.0000     
+giraffe  | 3      | 29         | 29.0000     
+giraffe  | 4      | 134        | 28.0000     
+giraffe  | 5      | 91         | 28.0000     
+giraffe  | 6      | 89         | 27.0000     
+giraffe  | 7      | 25         | 27.0000     
+giraffe  | 8      | 46         | 26.0000     
+giraffe  | 9      | 112        | 26.0000     
+giraffe  | 10     | 36         | 26.0000     
+
+person + car | 1      | 197        | 97168.0000  
+person + car | 2      | 195        | 97162.0000  
+person + car | 3      | 182        | 96774.0000  
+person + car | 4      | 189        | 96683.0000  
+person + car | 5      | 199        | 96628.0000  
+person + car | 6      | 192        | 96624.0000  
+person + car | 7      | 188        | 96606.0000  
+person + car | 8      | 194        | 96555.0000  
+person + car | 9      | 187        | 96491.0000  
+person + car | 10     | 193        | 96386.0000  
+
+==================================================
+
+p: ../results/model_0/teaspoon_tgt_2
+--------------------------------------------------
+Column   | Rank   | Position   | Value       
+--------------------------------------------------
+person   | 1      | 0          | 492.0000    
+person   | 2      | 7          | 435.0000    
+person   | 3      | 6          | 429.0000    
+person   | 4      | 5          | 404.0000    
+person   | 5      | 3          | 397.0000    
+person   | 6      | 4          | 397.0000    
+person   | 7      | 9          | 381.0000    
+person   | 8      | 2          | 376.0000    
+person   | 9      | 12         | 374.0000    
+person   | 10     | 10         | 373.0000    
+
+car      | 1      | 199        | 94845.0000  
+car      | 2      | 198        | 94605.0000  
+car      | 3      | 195        | 94487.0000  
+car      | 4      | 193        | 94470.0000  
+car      | 5      | 197        | 94464.0000  
+car      | 6      | 189        | 94278.0000  
+car      | 7      | 191        | 94224.0000  
+car      | 8      | 192        | 94184.0000  
+car      | 9      | 196        | 94139.0000  
+car      | 10     | 190        | 94126.0000  
+
+microwave oven | 1      | 17         | 10.0000     
+microwave oven | 2      | 46         | 7.0000      
+microwave oven | 3      | 24         | 7.0000      
+microwave oven | 4      | 167        | 6.0000      
+microwave oven | 5      | 6          | 5.0000      
+microwave oven | 6      | 29         | 5.0000      
+microwave oven | 7      | 27         | 5.0000      
+microwave oven | 8      | 0          | 5.0000      
+microwave oven | 9      | 23         | 4.0000      
+microwave oven | 10     | 84         | 4.0000      
+
+giraffe  | 1      | 34         | 15.0000     
+giraffe  | 2      | 36         | 13.0000     
+giraffe  | 3      | 54         | 13.0000     
+giraffe  | 4      | 55         | 13.0000     
+giraffe  | 5      | 30         | 13.0000     
+giraffe  | 6      | 29         | 12.0000     
+giraffe  | 7      | 39         | 12.0000     
+giraffe  | 8      | 35         | 12.0000     
+giraffe  | 9      | 42         | 11.0000     
+giraffe  | 10     | 32         | 11.0000     
+
+person + car | 1      | 199        | 95039.0000  
+person + car | 2      | 198        | 94808.0000  
+person + car | 3      | 195        | 94692.0000  
+person + car | 4      | 197        | 94653.0000  
+person + car | 5      | 193        | 94652.0000  
+person + car | 6      | 189        | 94472.0000  
+person + car | 7      | 191        | 94411.0000  
+person + car | 8      | 192        | 94385.0000  
+person + car | 9      | 190        | 94348.0000  
+person + car | 10     | 196        | 94318.0000  
+
+==================================================
+
+p: ../results/model_0/teaspoon_tgt_0
+--------------------------------------------------
+Column   | Rank   | Position   | Value       
+--------------------------------------------------
+person   | 1      | 197        | 90122.0000  
+person   | 2      | 199        | 89756.0000  
+person   | 3      | 194        | 89625.0000  
+person   | 4      | 192        | 89420.0000  
+person   | 5      | 195        | 88977.0000  
+person   | 6      | 198        | 88921.0000  
+person   | 7      | 196        | 88468.0000  
+person   | 8      | 186        | 88378.0000  
+person   | 9      | 193        | 88328.0000  
+person   | 10     | 188        | 88234.0000  
+
+car      | 1      | 116        | 112.0000    
+car      | 2      | 54         | 112.0000    
+car      | 3      | 110        | 109.0000    
+car      | 4      | 107        | 107.0000    
+car      | 5      | 126        | 107.0000    
+car      | 6      | 102        | 104.0000    
+car      | 7      | 114        | 104.0000    
+car      | 8      | 86         | 104.0000    
+car      | 9      | 99         | 104.0000    
+car      | 10     | 100        | 104.0000    
+
+microwave oven | 1      | 0          | 5.0000      
+microwave oven | 2      | 1          | 3.0000      
+microwave oven | 3      | 3          | 3.0000      
+microwave oven | 4      | 2          | 3.0000      
+microwave oven | 5      | 5          | 2.0000      
+microwave oven | 6      | 4          | 1.0000      
+microwave oven | 7      | 133        | 0.0000      
+microwave oven | 8      | 134        | 0.0000      
+microwave oven | 9      | 135        | 0.0000      
+microwave oven | 10     | 127        | 0.0000      
+
+giraffe  | 1      | 7          | 15.0000     
+giraffe  | 2      | 10         | 13.0000     
+giraffe  | 3      | 5          | 13.0000     
+giraffe  | 4      | 22         | 12.0000     
+giraffe  | 5      | 8          | 12.0000     
+giraffe  | 6      | 6          | 11.0000     
+giraffe  | 7      | 24         | 11.0000     
+giraffe  | 8      | 16         | 11.0000     
+giraffe  | 9      | 17         | 11.0000     
+giraffe  | 10     | 66         | 10.0000     
+
+person + car | 1      | 197        | 90194.0000  
+person + car | 2      | 199        | 89819.0000  
+person + car | 3      | 194        | 89692.0000  
+person + car | 4      | 192        | 89475.0000  
+person + car | 5      | 195        | 89050.0000  
+person + car | 6      | 198        | 88992.0000  
+person + car | 7      | 196        | 88533.0000  
+person + car | 8      | 186        | 88460.0000  
+person + car | 9      | 193        | 88410.0000  
+person + car | 10     | 188        | 88318.0000  
+
+==================================================
+
+p: ../results/model_1/teastatic_tgt_0
+--------------------------------------------------
+Column   | Rank   | Position   | Value       
+--------------------------------------------------
+person   | 1      | 3          | 1136.0000   
+person   | 2      | 4          | 1076.0000   
+person   | 3      | 2          | 986.0000    
+person   | 4      | 5          | 952.0000    
+person   | 5      | 6          | 757.0000    
+person   | 6      | 1          | 741.0000    
+person   | 7      | 7          | 700.0000    
+person   | 8      | 8          | 563.0000    
+person   | 9      | 9          | 534.0000    
+person   | 10     | 10         | 495.0000    
+
+car      | 1      | 3          | 202.0000    
+car      | 2      | 2          | 200.0000    
+car      | 3      | 4          | 168.0000    
+car      | 4      | 5          | 162.0000    
+car      | 5      | 1          | 124.0000    
+car      | 6      | 6          | 77.0000     
+car      | 7      | 154        | 71.0000     
+car      | 8      | 169        | 70.0000     
+car      | 9      | 196        | 67.0000     
+car      | 10     | 186        | 67.0000     
+
+microwave oven | 1      | 1          | 15.0000     
+microwave oven | 2      | 0          | 8.0000      
+microwave oven | 3      | 2          | 7.0000      
+microwave oven | 4      | 5          | 3.0000      
+microwave oven | 5      | 3          | 2.0000      
+microwave oven | 6      | 7          | 2.0000      
+microwave oven | 7      | 4          | 2.0000      
+microwave oven | 8      | 135        | 0.0000      
+microwave oven | 9      | 134        | 0.0000      
+microwave oven | 10     | 138        | 0.0000      
+
+giraffe  | 1      | 4          | 14.0000     
+giraffe  | 2      | 3          | 13.0000     
+giraffe  | 3      | 2          | 11.0000     
+giraffe  | 4      | 5          | 11.0000     
+giraffe  | 5      | 1          | 10.0000     
+giraffe  | 6      | 6          | 10.0000     
+giraffe  | 7      | 7          | 4.0000      
+giraffe  | 8      | 8          | 4.0000      
+giraffe  | 9      | 0          | 3.0000      
+giraffe  | 10     | 10         | 2.0000      
+
+person + car | 1      | 3          | 1338.0000   
+person + car | 2      | 4          | 1244.0000   
+person + car | 3      | 2          | 1186.0000   
+person + car | 4      | 5          | 1114.0000   
+person + car | 5      | 1          | 865.0000    
+person + car | 6      | 6          | 834.0000    
+person + car | 7      | 7          | 767.0000    
+person + car | 8      | 8          | 612.0000    
+person + car | 9      | 9          | 581.0000    
+person + car | 10     | 10         | 539.0000    
+
+==================================================
+
+p: ../results/model_1/teaspoon_tgt_0_2
+--------------------------------------------------
+Column   | Rank   | Position   | Value       
+--------------------------------------------------
+person   | 1      | 178        | 49888.0000  
+person   | 2      | 182        | 49794.0000  
+person   | 3      | 194        | 49665.0000  
+person   | 4      | 193        | 49538.0000  
+person   | 5      | 185        | 49467.0000  
+person   | 6      | 197        | 49380.0000  
+person   | 7      | 196        | 49245.0000  
+person   | 8      | 180        | 49172.0000  
+person   | 9      | 191        | 49172.0000  
+person   | 10     | 176        | 49156.0000  
+
+car      | 1      | 199        | 47429.0000  
+car      | 2      | 190        | 47199.0000  
+car      | 3      | 198        | 47135.0000  
+car      | 4      | 177        | 47083.0000  
+car      | 5      | 195        | 46981.0000  
+car      | 6      | 192        | 46808.0000  
+car      | 7      | 179        | 46712.0000  
+car      | 8      | 175        | 46650.0000  
+car      | 9      | 197        | 46589.0000  
+car      | 10     | 189        | 46512.0000  
+
+microwave oven | 1      | 0          | 5.0000      
+microwave oven | 2      | 54         | 4.0000      
+microwave oven | 3      | 3          | 4.0000      
+microwave oven | 4      | 60         | 3.0000      
+microwave oven | 5      | 191        | 3.0000      
+microwave oven | 6      | 61         | 3.0000      
+microwave oven | 7      | 152        | 3.0000      
+microwave oven | 8      | 52         | 3.0000      
+microwave oven | 9      | 77         | 2.0000      
+microwave oven | 10     | 78         | 2.0000      
+
+giraffe  | 1      | 187        | 8.0000      
+giraffe  | 2      | 6          | 7.0000      
+giraffe  | 3      | 183        | 7.0000      
+giraffe  | 4      | 179        | 7.0000      
+giraffe  | 5      | 169        | 7.0000      
+giraffe  | 6      | 182        | 6.0000      
+giraffe  | 7      | 164        | 6.0000      
+giraffe  | 8      | 186        | 6.0000      
+giraffe  | 9      | 184        | 6.0000      
+giraffe  | 10     | 0          | 6.0000      
+
+person + car | 1      | 199        | 96223.0000  
+person + car | 2      | 198        | 96143.0000  
+person + car | 3      | 197        | 95969.0000  
+person + car | 4      | 195        | 95348.0000  
+person + car | 5      | 191        | 95218.0000  
+person + car | 6      | 196        | 95191.0000  
+person + car | 7      | 189        | 95114.0000  
+person + car | 8      | 194        | 95033.0000  
+person + car | 9      | 193        | 95026.0000  
+person + car | 10     | 190        | 94984.0000  
+
+==================================================
+
+p: ../results/model_1/teaspoon_tgt_2
+--------------------------------------------------
+Column   | Rank   | Position   | Value       
+--------------------------------------------------
+person   | 1      | 0          | 493.0000    
+person   | 2      | 7          | 414.0000    
+person   | 3      | 5          | 396.0000    
+person   | 4      | 9          | 395.0000    
+person   | 5      | 4          | 394.0000    
+person   | 6      | 3          | 389.0000    
+person   | 7      | 41         | 388.0000    
+person   | 8      | 43         | 384.0000    
+person   | 9      | 8          | 381.0000    
+person   | 10     | 1          | 380.0000    
+
+car      | 1      | 188        | 89906.0000  
+car      | 2      | 198        | 89859.0000  
+car      | 3      | 196        | 89808.0000  
+car      | 4      | 194        | 89805.0000  
+car      | 5      | 193        | 89758.0000  
+car      | 6      | 197        | 89614.0000  
+car      | 7      | 199        | 89543.0000  
+car      | 8      | 195        | 89424.0000  
+car      | 9      | 190        | 89309.0000  
+car      | 10     | 191        | 89272.0000  
+
+microwave oven | 1      | 1          | 6.0000      
+microwave oven | 2      | 199        | 5.0000      
+microwave oven | 3      | 0          | 5.0000      
+microwave oven | 4      | 194        | 5.0000      
+microwave oven | 5      | 59         | 5.0000      
+microwave oven | 6      | 102        | 4.0000      
+microwave oven | 7      | 3          | 4.0000      
+microwave oven | 8      | 70         | 4.0000      
+microwave oven | 9      | 81         | 4.0000      
+microwave oven | 10     | 127        | 4.0000      
+
+giraffe  | 1      | 0          | 6.0000      
+giraffe  | 2      | 13         | 4.0000      
+giraffe  | 3      | 122        | 4.0000      
+giraffe  | 4      | 85         | 4.0000      
+giraffe  | 5      | 1          | 3.0000      
+giraffe  | 6      | 143        | 2.0000      
+giraffe  | 7      | 3          | 2.0000      
+giraffe  | 8      | 50         | 2.0000      
+giraffe  | 9      | 91         | 1.0000      
+giraffe  | 10     | 54         | 1.0000      
+
+person + car | 1      | 188        | 90135.0000  
+person + car | 2      | 198        | 90099.0000  
+person + car | 3      | 196        | 90069.0000  
+person + car | 4      | 194        | 90041.0000  
+person + car | 5      | 193        | 89989.0000  
+person + car | 6      | 197        | 89856.0000  
+person + car | 7      | 199        | 89778.0000  
+person + car | 8      | 195        | 89658.0000  
+person + car | 9      | 190        | 89528.0000  
+person + car | 10     | 191        | 89522.0000  
+
+==================================================
+
+p: ../results/model_1/teaspoon_tgt_0
+--------------------------------------------------
+Column   | Rank   | Position   | Value       
+--------------------------------------------------
+person   | 1      | 197        | 85796.0000  
+person   | 2      | 199        | 85658.0000  
+person   | 3      | 198        | 85433.0000  
+person   | 4      | 196        | 85304.0000  
+person   | 5      | 194        | 85279.0000  
+person   | 6      | 191        | 85079.0000  
+person   | 7      | 195        | 85073.0000  
+person   | 8      | 192        | 85001.0000  
+person   | 9      | 193        | 84971.0000  
+person   | 10     | 190        | 84627.0000  
+
+car      | 1      | 1          | 50.0000     
+car      | 2      | 2          | 41.0000     
+car      | 3      | 142        | 40.0000     
+car      | 4      | 0          | 40.0000     
+car      | 5      | 158        | 36.0000     
+car      | 6      | 156        | 36.0000     
+car      | 7      | 184        | 34.0000     
+car      | 8      | 151        | 34.0000     
+car      | 9      | 179        | 32.0000     
+car      | 10     | 182        | 32.0000     
+
+microwave oven | 1      | 0          | 5.0000      
+microwave oven | 2      | 1          | 2.0000      
+microwave oven | 3      | 4          | 2.0000      
+microwave oven | 4      | 13         | 1.0000      
+microwave oven | 5      | 48         | 1.0000      
+microwave oven | 6      | 44         | 1.0000      
+microwave oven | 7      | 18         | 1.0000      
+microwave oven | 8      | 51         | 1.0000      
+microwave oven | 9      | 182        | 1.0000      
+microwave oven | 10     | 90         | 1.0000      
+
+giraffe  | 1      | 193        | 14.0000     
+giraffe  | 2      | 163        | 12.0000     
+giraffe  | 3      | 104        | 11.0000     
+giraffe  | 4      | 195        | 11.0000     
+giraffe  | 5      | 153        | 11.0000     
+giraffe  | 6      | 165        | 11.0000     
+giraffe  | 7      | 187        | 10.0000     
+giraffe  | 8      | 191        | 10.0000     
+giraffe  | 9      | 189        | 10.0000     
+giraffe  | 10     | 158        | 10.0000     
+
+person + car | 1      | 197        | 85825.0000  
+person + car | 2      | 199        | 85688.0000  
+person + car | 3      | 198        | 85465.0000  
+person + car | 4      | 196        | 85330.0000  
+person + car | 5      | 194        | 85309.0000  
+person + car | 6      | 195        | 85105.0000  
+person + car | 7      | 191        | 85105.0000  
+person + car | 8      | 192        | 85023.0000  
+person + car | 9      | 193        | 84998.0000  
+person + car | 10     | 190        | 84658.0000  
+
+==================================================
+

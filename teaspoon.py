@@ -16,7 +16,7 @@ from model_zoo import load_from_pretrained
 from torch.optim import Adam
 import math
 
-learning_rate = 0.001
+learning_rate = 0.0001
 
 class TeaSpoon(BaseAttack):
     
@@ -44,45 +44,57 @@ class TeaSpoon(BaseAttack):
     def update_bx(self, it_count):
         width = self.boxes[:, 2] - self.boxes[:, 0]
         height = self.boxes[: ,3]- self.boxes[:, 1]
-        sel_dets = self.scores
+
         sel_height = height.clone()
         sel_width = width.clone()
 
         sel_aaa = (sel_width/self.target_size[0][0]) * (sel_height/self.target_size[0][1])
         
-        loss1_targets = torch.ones_like(sel_dets)
-        loss1 = 10*(F.mse_loss(sel_dets, loss1_targets, reduction='sum'))
+        conf_loss = 0.0
+        # not to use
+        # sel_dets = self.scores.clone()
+        # conf_loss_targets = torch.ones_like(sel_dets)
+        # conf_loss = 1.0 * (F.mse_loss(sel_dets, conf_loss_targets, reduction='sum')) / (len(sel_dets) + 1)
         
-        loss2 = 40*torch.norm(self.bx, p=2)
+        l_1_loss = torch.norm(self.bx, p=1) / (self.target_size[0][0] * self.target_size[0][1])  # normalize by target size
+        l_2_loss = torch.norm(self.bx, p=2) / 50.0
+        norm_loss = l_1_loss + l_2_loss 
         
-        loss3 = 100*torch.sum(sel_aaa)
+        area_loss = 100 * torch.sum(sel_aaa)
         
         cls_loss_target_tensor = self.cls_loss_target()
-        loss4 = 1.0 * F.mse_loss(self.logits, cls_loss_target_tensor, reduction='sum')
+        cls_loss = 1.0 * F.mse_loss(self.prob, cls_loss_target_tensor, reduction='sum') / (len(self.logits) + 1)
         
         alpha1, alpha2, alpha3 = self.factor_scheduler(it_count)
-        # total_loss = alpha3 * loss2 + alpha2 * loss3 + alpha1 * loss1 + loss4
-        total_loss = alpha3 * loss2 + alpha2 * loss3 + alpha1 * loss4
-        total_loss.requires_grad_(True)
-        
+        total_loss = alpha3 * cls_loss + alpha2 * area_loss + alpha1 * norm_loss 
+        total_loss = cls_loss
+        # clear grad
         self.adam_opt.zero_grad()
         total_loss.backward(retain_graph=True)
-        self.bx.grad = self.bx.grad / (torch.norm(self.bx.grad,p=2) + 1e-20)
-        self.bx.data = - 1.5 * self.bx.grad+ self.bx.data
         
-        self.clone_loss(loss1, loss2, loss3, loss4)
+        # use adam to update
+        # self.adam_opt.step()
+        
+        # manually update
+        self.bx.grad = self.bx.grad / (torch.norm(self.bx.grad,p=2) + 1e-20)
+        self.bx.data = -1.5 * self.bx.grad+ self.bx.data
+        
+        with torch.no_grad():
+            self.bx.data.clamp_(-0.04, 0.04)  
+        
+        self.clone_loss([norm_loss, area_loss, cls_loss])
         return self.bx
         
     def cls_loss_target(self):
-        target_tensor = torch.zeros_like(self.logits)
+        target_tensor = torch.zeros_like(self.prob) 
+        
         if isinstance(self.target_idx, int):
             target_tensor[:, self.target_idx] = 1.0
-            pdb.set_trace()
         elif isinstance(self.target_idx, list):
             for i in self.target_idx:
                 target_tensor[:, i] = 1.0
         elif self.target_idx == None:
-            target_tensor = torch.ones_like(self.logits)
+            target_tensor = torch.ones_like(self.prob)        
         return target_tensor
 
     def factor_scheduler(self, it_count):
@@ -92,12 +104,15 @@ class TeaSpoon(BaseAttack):
         return alpha1, alpha2, alpha3
     
     
-    def clone_loss(self, loss1, loss2, loss3, loss4):
-        self._loss1 = loss1.detach().clone().cpu().item()
-        self._loss2 = loss2.detach().clone().cpu().item()
-        self._loss3 = loss3.detach().clone().cpu().item()
-        self._loss4 = loss4.detach().clone().cpu().item()
-        
+    def clone_loss(self, cuda_loss_list):
+        cpu_loss_list = [self._loss1, self._loss2, self._loss3, self._loss4]
+        assert len(cuda_loss_list) <= len(cpu_loss_list)
+        for i, loss in enumerate(cuda_loss_list):
+            if isinstance(loss, torch.Tensor):
+                cpu_loss_list[i] = cuda_loss_list[i].detach().clone().cpu().item()
+            else:
+                cpu_loss_list[i] = "n/a"
+
         
     def logger(self, it):
         count = 0

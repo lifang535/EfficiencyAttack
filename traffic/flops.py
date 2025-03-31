@@ -1,73 +1,53 @@
-from multiprocessing import Process, Queue, Event
-from queue import Empty
-import multiprocessing as mp
-import glob
-import time
-import torch
 import numpy as np
 import sys
 from pathlib import Path
-sys.path.append("../")
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-import functools
 import os
-import datetime
-from torch.profiler import profile, record_function, ProfilerActivity
-from tqdm import tqdm
-import logging
-from transformers import AutoImageProcessor, ResNetForImageClassification, AutoModelForImageClassification
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
-from model_zoo import load_from_pretrained
-from dotenv import load_dotenv
 from tabulate import tabulate
-
-load_dotenv()
-SESSION_ID = os.getenv("SESSION_ID")
-
-# SESSION_ID = traffic.SESSION_ID
-LOG_DIR = f"../../profile/{SESSION_ID}"
-
-os.makedirs(LOG_DIR, exist_ok=True)
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+import logging
+import psutil
+import functools
+import json
+import inspect
+import torch
+from datetime import datetime
+from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetUtilizationRates
+from torch.profiler import profile, record_function, ProfilerActivity
 
 
-def calculate_flops_decorator(func, save_path=None):
+sys.path.append("./components")
 
-    import functools
-    import json
-    import os
-    from torch.profiler import profile, record_function, ProfilerActivity
-    
+output_folder = "./profile"
+
+def FLOPs_DECORATOR(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if save_path is None:
-            file_path = f"{LOG_DIR}/{func.__qualname__}_profile.json"
-        else:
-            file_path = save_path
+        os.makedirs(output_folder, exist_ok=True)
+        save_path = f"{output_folder}/{func.__qualname__}_profile" if output_folder else f"{func.__qualname__}_profile"
+        try:
+            with profile(
+                activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                with_flops=True,
+                profile_memory=True,
+                record_shapes=True
+            ) as prof:
+                with record_function(func.__qualname__):
+                    result = func(*args, **kwargs)
+            # print("\n" + "i am here " * 10 + "\n")
+                    
+            cpu_flops = 0
+            cuda_flops = 0
+            operations_data = []
             
-        with profile(
-            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-            with_flops=True,
-            profile_memory=True,
-            record_shapes=True
-        ) as prof:
-            with record_function(func.__qualname__):
-                result = func(*args, **kwargs)
+            cpu_time_total = None
+            cuda_time_total = None
+            
+            table_str = str(prof.key_averages().table(sort_by="cuda_time_total"))
+            table_rows = table_str.split('\n')
+
+        except Exception as e:
+            logging.error(f"Error during profiling: {e}")
+            return None
         
-        cpu_flops = 0
-        cuda_flops = 0
-        operations_data = []
-        
-        cpu_time_total = None
-        cuda_time_total = None
-        
-        table_str = str(prof.key_averages().table(sort_by="cuda_time_total"))
-        table_rows = table_str.split('\n')
         
         for row in table_rows:
             if "Self CPU time total" in row:
@@ -78,41 +58,13 @@ def calculate_flops_decorator(func, save_path=None):
                 parts = row.split(":")
                 if len(parts) > 1:
                     cuda_time_total = parts[1].strip()
-        
-
-
+                    
         header_parts = None
         for row in table_rows:
             if "Total MFLOPs" in row:
                 header_parts = row.split()
                 break
-        
-        if not header_parts:
-            logger.warning(f"Could not find 'Total MFLOPs' column in profiler output of {func.__qualname__}")
-            profile_data = {
-                "timing": {
-                    "self_cpu_time_total": cpu_time_total,
-                    "self_cuda_time_total": cuda_time_total
-                },
-                "operations": [],
-                "flops": {
-                    "cpu_flops": 0.0,
-                    "cuda_flops": 0.0,
-                    "total_flops": 0.0
-                }
-            }
             
-            with open(file_path, 'w') as f:
-                json.dump(profile_data, f, indent=2)
-                
-            # print(f"Profile data saved to {file_path}")
-            return result
-            
-        try:
-            mflops_col_idx = header_parts.index("Total") + 1
-        except ValueError:
-            logger.info(f"Warning: Could not determine MFLOPs column index {func.__qualname__}")
-            return result
         
         mflops_data = []
         for row in table_rows:
@@ -182,7 +134,7 @@ def calculate_flops_decorator(func, save_path=None):
                 except ValueError:
                     pass
                 
-        with open(f"{LOG_DIR}/{func.__qualname__}_profile.txt", "w") as f:
+        with open(save_path + ".txt", "w") as f:
                 # Write summary metrics at the top for quick reference
                 f.write(f"Self CPU time total: {cpu_time_total} ms\n")
                 f.write(f"Self CUDA time total: {cuda_time_total} ms\n")
@@ -207,19 +159,6 @@ def calculate_flops_decorator(func, save_path=None):
                     ["Total FLOPs", f"{cpu_flops + cuda_flops:.2f}"]
                 ]
                 f.write(tabulate(flops_summary, headers=["Metric", "Value"], tablefmt="grid"))
-            
-            
-        # print(f"\n===== Profile for {func.__qualname__} =====")
-        # print(table_str)
-        
-        # print("\nExtracted MFLOPs data:")
-        # for op, mflops, is_cuda in mflops_data:
-        #     device = "CUDA" if is_cuda else "CPU"
-        #     print(f"{op}: {mflops} MFLOPs ({device})")
-            
-        # print(f"\nCPU FLOPs: {cpu_flops:.2f}")
-        # print(f"CUDA FLOPs: {cuda_flops:.2f}")
-        # print(f"Total FLOPs: {cpu_flops + cuda_flops:.2f}")
         
         profile_data = {
             "timing": {
@@ -234,61 +173,8 @@ def calculate_flops_decorator(func, save_path=None):
             }
         }
         
-        with open(file_path, 'w') as f:
+        with open(save_path + ".json", 'w') as f:
             json.dump(profile_data, f, indent=2)
-            
-        # print(f"\nProfile data saved to {file_path}")
-        # print(profile_data)
+        
         return result
     return wrapper
-
-
-def clean_up(processes, queues):
-    """
-    Clean up processes and queues properly.
-    
-    Args:
-        processes: List of Process objects
-        queues: List of Queue objects
-    """
-    logger.info("Starting clean-up procedure")
-    
-    # First, stop all processes gracefully
-    for process in processes:
-        if process.is_alive():
-            if hasattr(process, 'stop'):
-                logger.info(f"Stopping {process.__class__.__name__}")
-                process.stop()
-            else:
-                logger.warning(f"Process {process.__class__.__name__} has no stop method")
-    
-    # Give processes time to shut down gracefully
-    logger.info("Waiting for processes to stop gracefully")
-    wait_time = 5.0  # seconds
-    for process in processes:
-        process.join(timeout=wait_time)
-    
-    # Force terminate any remaining processes
-    for process in processes:
-        if process.is_alive():
-            logger.warning(f"Terminating {process.__class__.__name__}")
-            process.terminate()
-            process.join(timeout=1.0)
-    
-    # Empty all queues
-    logger.info("Emptying queues")
-    for queue in queues:
-        try:
-            while True:
-                queue.get_nowait()
-        except Empty:
-            pass
-    
-    # Close all queues
-    logger.info("Closing queues")
-    for queue in queues:
-        queue.close()
-    
-    logger.info("Clean-up complete")
-    
-    
