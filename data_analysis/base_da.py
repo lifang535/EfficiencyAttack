@@ -30,7 +30,7 @@ def get_paths(base_path, model_id=None, algorithm=None, target_idx=None):
             levels[depth] = []
         
         levels[depth].extend(os.path.join(root, d) for d in dirs)
-    
+        
     if model_id in [0,1,2]:
         print(f"Filtering for model id: {model_id}")
         paths = []
@@ -74,12 +74,133 @@ def get_paths(base_path, model_id=None, algorithm=None, target_idx=None):
 def get_json_paths(path):
     return glob.glob(os.path.join(path, "*.json"))
     
+def early_stop_loss(path_to_jsons, patience=5, threshold=0.001):
+    """
+    Analyze loss patterns to find the optimal early stopping point.
+    
+    Args:
+        path_to_jsons: Path to JSON files containing loss data
+        patience: Number of epochs to wait for improvement before early stopping
+        threshold: Minimum change in loss to be considered as improvement
+        
+    Returns:
+        Dictionary with best epoch and corresponding metrics
+    """
+    if "0" in path_to_jsons:
+        target_idx = 0
+    if "2" in path_to_jsons:
+        target_idx = 2
+    if "68" in path_to_jsons:
+        target_idx = 68
+    if "23" in path_to_jsons:
+        target_idx = 23
+    if "0_2" in path_to_jsons:
+        target_idx = [0,2]
+    else:
+        pass
+    
+    jsons_path = get_json_paths(path_to_jsons)
+    print(f"Found {len(jsons_path)} JSON files in {path_to_jsons}")
+    all_data = []
+    
+    for j in tqdm(jsons_path, desc="Processing JSON files"):
+        if "tea" in path_to_jsons:
+            nloss = 1
+        else:
+            nloss = 4
+        iteration_data = process_json(j, target_idx, num_of_loss=nloss)
+        all_data.extend(iteration_data)
+    
+    # Organize data by epochs
+    epochs_data = {}
+    for i, data_point in enumerate(all_data):
+        epoch = i // len(jsons_path)  # Calculate epoch based on iteration and number of files
+        if epoch not in epochs_data:
+            epochs_data[epoch] = []
+        epochs_data[epoch].append(data_point)
+    
+    # Calculate average loss for each epoch
+    epoch_avg_losses = []
+    for epoch, data_points in sorted(epochs_data.items()):
+        # Calculate average of loss_1 (main loss to monitor)
+        avg_loss_1 = sum(point[0] for point in data_points) / len(data_points)
+        # Calculate average of targeted count
+        avg_target_count = sum(point[4] for point in data_points) / len(data_points)
+        epoch_avg_losses.append({
+            'epoch': epoch,
+            'avg_loss': avg_loss_1,
+            'avg_target_count': avg_target_count
+        })
+    
+    # Implement early stopping logic
+    best_loss = float('inf')
+    best_epoch = 0
+    no_improvement_count = 0
+    
+    for i, epoch_data in enumerate(epoch_avg_losses):
+        current_loss = epoch_data['avg_loss']
+        
+        # Check if current loss is better than best loss
+        if current_loss < best_loss - threshold:
+            best_loss = current_loss
+            best_epoch = epoch_data['epoch']
+            no_improvement_count = 0
+        else:
+            no_improvement_count += 1
+        
+        # Early stopping condition
+        if no_improvement_count >= patience:
+            print(f"Early stopping triggered at epoch {i}")
+            print(f"Best epoch: {best_epoch} with loss: {best_loss:.6f}")
+            break
+    
+    # Plot loss curve
+    parts = path_to_jsons.split('/')
+    last_two = parts[-2:]
+    print(last_two)  
 
+    result = '/'.join(last_two)
+    plot_loss_curve(epoch_avg_losses, result)
+    
+    return {
+        'best_epoch': best_epoch,
+        'best_loss': best_loss,
+        'epochs_data': epoch_avg_losses
+    }
+    
+def plot_loss_curve(epoch_data, path_to_jsons):
+    """
+    Plot the loss curve to visualize convergence.
+    
+    Args:
+        epoch_data: List of dictionaries containing epoch information
+    """
+    import matplotlib.pyplot as plt
+    
+    epochs = [data['epoch'] for data in epoch_data]
+    losses = [data['avg_loss'] for data in epoch_data]
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(epochs, losses, 'b-', linewidth=2)
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Training Loss over Epochs')
+    plt.grid(True)
+    
+    # Mark the best epoch
+    best_epoch = min(range(len(losses)), key=lambda i: losses[i])
+    plt.axvline(x=epochs[best_epoch], color='r', linestyle='--', 
+                label=f'Best epoch: {epochs[best_epoch]}')
+    
+    plt.legend()
+    plt.savefig(f'./loss_plt/{path_to_jsons}.png')
+    # plt.show()
+    
 def process_json_label(path_to_json):
     try:
         with open(path_to_json) as f:
             data = json.load(f)
-        counter = torch.zeros(200, 5)
+        counter = torch.zeros(200, 6)
         for i in range(len(data)):
             labels = data[str(i)]["labels"]
             person = labels.count(0) 
@@ -93,14 +214,16 @@ def process_json_label(path_to_json):
             counter[i][2] += microwave
             counter[i][3] += giraffe
             counter[i][4] += person_car
+            
+            counter[i][5] = len(labels)
         
         return counter
     except json.JSONDecodeError as e:
         print(f"Error parsing JSON file {path_to_json}: {e}")
-        return torch.zeros(200, 5)  # Return empty counter for this file
+        return torch.zeros(200, 6)  # Return empty counter for this file
 
 
-def process_json(path_to_json, targeted_label_id):
+def process_json(path_to_json, targeted_label_id, num_of_loss):
     try:
         with open(path_to_json, 'r') as f:
             data = json.load(f)
@@ -112,9 +235,19 @@ def process_json(path_to_json, targeted_label_id):
     results = []
     for i in range(len(data)):  #  200 iteration
         # iteration loss
-        loss_1, loss_2, loss_3, loss_4 = data[str(i)]["loss"]
-        labels = data[str(i)]["labels"]
-        targeted_count = labels.count(targeted_label_id)
+        if num_of_loss == 4:
+            loss_1, loss_2, loss_3, loss_4 = data[str(i)]["loss"]
+            labels = data[str(i)]["labels"]
+        elif num_of_loss == 1:
+            loss_1 = data[str(i)]["loss"]
+            loss_2 = 0
+            loss_3 = 0
+            loss_4 = 0
+            labels = data[str(i)]["labels"]
+        if isinstance(targeted_label_id, list):
+            targeted_count = sum(labels.count(label_id) for label_id in targeted_label_id)
+        else:
+            targeted_count = labels.count(targeted_label_id)
         results.append([loss_1, loss_2, loss_3, loss_4, targeted_count])
 
     return results
@@ -130,7 +263,7 @@ def baseline():
         with open("baseline_results.txt", "a") as f:
             for p in paths:
                 json_p = get_json_paths(p)[:100]
-                counter = torch.zeros(200, 5)
+                counter = torch.zeros(200, 6)
                 for jp in tqdm(json_p, desc=f"Processing JSON files: {p}"):
                     jp_counter = process_json_label(jp)
                     counter += jp_counter
@@ -144,10 +277,10 @@ def baseline():
                 f.write(f"{'Column':<8} | {'Rank':<6} | {'Position':<10} | {'Value':<12}\n")
                 f.write("-" * 50 + "\n")
                 
-                col_names = ['person', 'car', 'microwave oven', 'giraffe', 'person + car']
+                col_names = ['person', 'car', 'microwave oven', 'giraffe', 'person + car', 'total']
                 
                 # top k values for each column
-                for i in range(5):
+                for i in range(len(col_names)):
                     column_data = counter[:, i]
                     top_values, top_indices = torch.topk(column_data, k)
                     
@@ -168,12 +301,12 @@ def non_tgt():
                     model_id=None,
                     algorithm="tgt_none",
                     target_idx=None)
-    
+
     problematic_files = []
     with open("non_tgt_results.txt", "a") as f:
         for p in paths:
             json_p = get_json_paths(p)[:100]
-            counter = torch.zeros(200, 5)
+            counter = torch.zeros(200, 6)
             for jp in tqdm(json_p, desc="Processing JSON files"):
                 try:
                     jp_counter = process_json_label(jp)
@@ -192,10 +325,10 @@ def non_tgt():
             f.write(f"{'Column':<8} | {'Rank':<6} | {'Position':<10} | {'Value':<12}\n")
             f.write("-" * 50 + "\n")
             
-            col_names = ['person', 'car', 'microwave oven', 'giraffe', 'person + car']
+            col_names = ['person', 'car', 'microwave oven', 'giraffe', 'person + car', 'total']
             
             # top k values for each column
-            for i in range(5):
+            for i in range(len(col_names)):
                 column_data = counter[:, i]
                 top_values, top_indices = torch.topk(column_data, k)
                 
@@ -226,7 +359,7 @@ def tea_tgt():
     with open("tea_tgt_results.txt", "a") as f:
         for p in paths:
             json_p = get_json_paths(p)[:100]
-            counter = torch.zeros(200, 5)
+            counter = torch.zeros(200, 6)
             for jp in tqdm(json_p, desc="Processing JSON files"):
                 try:
                     jp_counter = process_json_label(jp)
@@ -245,10 +378,10 @@ def tea_tgt():
             f.write(f"{'Column':<8} | {'Rank':<6} | {'Position':<10} | {'Value':<12}\n")
             f.write("-" * 50 + "\n")
             
-            col_names = ['person', 'car', 'microwave oven', 'giraffe', 'person + car']
+            col_names = ['person', 'car', 'microwave oven', 'giraffe', 'person + car', 'total']
             
             # top k values for each column
-            for i in range(5):
+            for i in range(len(col_names)):
                 column_data = counter[:, i]
                 top_values, top_indices = torch.topk(column_data, k)
                 
@@ -268,6 +401,8 @@ def tea_tgt():
             for file_path, error in problematic_files:
                 error_log.write(f"{file_path}: {error}\n")
                 
+
+
 def loss(path_to_jsons):
     
     if "0" in path_to_jsons:
@@ -288,7 +423,11 @@ def loss(path_to_jsons):
     all_data = []
     
     for j in tqdm(jsons_path, desc="Processing JSON files"):
-        iteration_data = process_json(j, 0)
+        if "tea" in path_to_jsons:
+            nloss = 1
+        else:
+            nloss = 4
+        iteration_data = process_json(j, target_idx, num_of_loss=nloss)
         all_data.extend(iteration_data)
     
     columns = ["loss_1", "loss_2", "loss_3", "loss_4", "targeted_count"]
@@ -404,16 +543,20 @@ def vis(path_list):
         print(f"Saved loss visualization to {vis_path}")
 
 if __name__ == "__main__":
+    # baseline()
     # non_tgt()
-    baseline()
-    tea_tgt()
+    # tea_tgt()
+    # early_stop_loss
     paths = get_paths(base_path,
                     model_id=None,
                     algorithm=None,
                     target_idx=True)
     print("Processing : ", len(paths))
+
     for p in paths:
         loss(p)
+        # early_stop_loss(p, patience=5, threshold=0.01)
+
         
         
     pass

@@ -12,7 +12,8 @@ import sys
 import time
 from PIL import Image
 sys.path.append("../")
-from flops import FLOPs_DECORATOR
+from flops import FLOPs_DECORATOR, write_profile
+from torch.profiler import profile, record_function, ProfilerActivity
 # from model import create_model # https://github.com/dbpprt/pytorch-licenseplate-segmentation/tree/master
 from fast_plate_ocr import ONNXPlateRecognizer # https://github.com/ankandrew/fast-plate-ocr
 import onnxruntime as ort
@@ -33,15 +34,27 @@ class lprStream(Process):
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_id = None
         
-    def set_config(self, model_id="cmpnt/model_v2.pth"):
+    def set_config(self, model_id="cmpnt/model_v2.pth", profile_save_path = None):
         self.model_id = model_id
-        
+        self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
+
     def shutdown(self):
         self.lpr2kr_queue.put(None)
         self.stop_event.set()
         
-    @FLOPs_DECORATOR
     def run(self):
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                     with_flops=True,
+                     profile_memory=True,
+                     record_shapes=True
+                     ) as prof:
+            with record_function("lmStream"):
+                self._run()
+                
+        write_profile(prof, self.profile_save_path)
+        
+    # @FLOPs_DECORATOR
+    def _run(self):
         try:
             self.deeplabv3 = self.create_model()
             self.checkpoint = torch.load(self.model_id, map_location='cpu')

@@ -5,13 +5,15 @@ from multiprocessing import Process, Queue, Event
 import torch
 import glob
 import time
-from flops import FLOPs_DECORATOR
+from flops import FLOPs_DECORATOR, write_profile
 import numpy as np
 import os
 from torchvision import transforms
 from PIL import Image
 import multiprocessing as mp
 import logging
+from torch.profiler import profile, record_function, ProfilerActivity
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,12 +29,24 @@ class imgStream(Process):
         self.stop_event = Event()
         self.device = device
         
-    def set_config(self, src_folder_path = None, fps = 30):
+    def set_config(self, src_folder_path = None, fps = 30, profile_save_path = None):
         self.src_folder_path = src_folder_path
         self.fps = fps
-        
-    @FLOPs_DECORATOR
+        self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
+
     def run(self):
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                     with_flops=True,
+                     profile_memory=True,
+                     record_shapes=True
+                     ) as prof:
+            with record_function("lmStream"):
+                self._run()
+                
+        write_profile(prof, self.profile_save_path)
+        
+    # @FLOPs_DECORATOR
+    def _run(self):
         try:
             paths = sorted(glob.glob(f"{self.src_folder_path}/*.pt"))
             logger.info(f"{self.__class__.__name__:<12} : found {len(paths)} files")
@@ -99,11 +113,6 @@ class imgStream(Process):
             else:
                 return np_array
     
-# Path to your JPGs
-input_dir = "../test_src"
-output_dir = "../test_src"
-os.makedirs(output_dir, exist_ok=True)
-
-
+    
 if __name__ == "__main__":
     pass

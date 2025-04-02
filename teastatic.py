@@ -49,33 +49,39 @@ class TeaStatic(BaseAttack):
 
         sel_aaa = (sel_width/self.target_size[0][0]) * (sel_height/self.target_size[0][1])
         
-        loss1_targets = torch.ones_like(sel_dets)
-        loss1 = 10*(F.mse_loss(sel_dets, loss1_targets, reduction='sum'))
+        conf_loss = 0.0
+        # not to use
+        # sel_dets = self.scores.clone()
+        # conf_loss_targets = torch.ones_like(sel_dets)
+        # conf_loss = 1.0 * (F.mse_loss(sel_dets, conf_loss_targets, reduction='sum')) / (len(sel_dets) + 1)
         
-        loss2 = 40*torch.norm(self.bx, p=2)
+        l_1_loss = torch.norm(self.bx, p=1) / (self.target_size[0][0] * self.target_size[0][1])  # normalize by target size
+        l_2_loss = torch.norm(self.bx, p=2) / 50.0
+        norm_loss = l_1_loss + l_2_loss 
         
-        loss3 = 20 *torch.sum(sel_aaa)
+        area_loss = 100 * torch.sum(sel_aaa)
         
         cls_loss_target_tensor = self.cls_loss_target()
-        loss4 = 1e-4 * F.mse_loss(self.logits, cls_loss_target_tensor, reduction='sum')
+        cls_loss = 1.0 * F.mse_loss(self.prob, cls_loss_target_tensor, reduction='sum') / (len(self.logits) + 1)
         
         alpha1, alpha2, alpha3 = 1,1,1
-        # total_loss = alpha3 * loss2 + alpha2 * loss3 + alpha1 * loss1 + loss4
-        total_loss = alpha3 * loss2 + alpha2 * loss3 + alpha1 * loss4
-        total_loss.requires_grad_(True)
-        
+        total_loss = alpha3 * cls_loss + alpha2 * area_loss + alpha1 * norm_loss 
+        total_loss = cls_loss
         # clear grad
         self.adam_opt.zero_grad()
         total_loss.backward(retain_graph=True)
         
-        # use adam to update
-        self.adam_opt.step()
+        # manually update
+        self.bx.grad = self.bx.grad / (torch.norm(self.bx.grad,p=2) + 1e-20)
+        self.bx.data = -1.5 * self.bx.grad+ self.bx.data
         
         with torch.no_grad():
             self.bx.data.clamp_(-0.04, 0.04)  
-            
-        self.clone_loss(loss1, loss2, loss3, loss4)
+        
+        self.total_loss_cpu = total_loss.clone().detach().cpu().item()
+        
         return self.bx
+        
         
         
     def cls_loss_target(self):
@@ -96,14 +102,7 @@ class TeaStatic(BaseAttack):
         alpha3 = 1 - math.cos(min(it_count / self.it_num * math.pi, math.pi / 2))
         alpha1 = 3 - alpha2 - alpha3
         return alpha1, alpha2, alpha3
-             
-             
-    def clone_loss(self, loss1, loss2, loss3, loss4):
-        self._loss1 = loss1.detach().clone().cpu().item()
-        self._loss2 = loss2.detach().clone().cpu().item()
-        self._loss3 = loss3.detach().clone().cpu().item()
-        self._loss4 = loss4.detach().clone().cpu().item()   
-        
+
         
     def logger(self, it):
         count = 0
@@ -119,8 +118,7 @@ class TeaStatic(BaseAttack):
             "scores" : self.scores.tolist(),
             "boxes" : self.boxes.tolist(),
             "time" : self.elapsed_time,
-            "loss": [self._loss1, self._loss2, self._loss3, self._loss4]
-            
+            "loss": self.total_loss_cpu            
         }
         
         self.result_dict[it] = tmp_dict

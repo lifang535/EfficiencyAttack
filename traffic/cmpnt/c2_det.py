@@ -6,7 +6,7 @@ from multiprocessing import Process, Queue, Event
 import torch
 import glob
 import time
-from flops import FLOPs_DECORATOR
+from flops import FLOPs_DECORATOR, write_profile
 import numpy as np
 import os
 from torchvision import transforms
@@ -15,6 +15,8 @@ import multiprocessing as mp
 import logging
 from queue import Empty
 from model_zoo import load_from_pretrained
+from torch.profiler import profile, record_function, ProfilerActivity
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,8 +34,9 @@ class odStream(Process):
         self.stop_event = Event()
         self.device = device
         
-    def set_config(self, model_id):
+    def set_config(self, model_id, profile_save_path = None):
         self.model_id = model_id
+        self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
 
     def shutdown(self):
         self.od2fr_queue.put(None)  
@@ -41,8 +44,19 @@ class odStream(Process):
         self.od2cap_queue.put(None) 
         self.stop_event.set()
         
-    @FLOPs_DECORATOR
     def run(self):
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                     with_flops=True,
+                     profile_memory=True,
+                     record_shapes=True
+                     ) as prof:
+            with record_function("lmStream"):
+                self._run()
+                
+        write_profile(prof, self.profile_save_path)
+        
+    # @FLOPs_DECORATOR
+    def _run(self):
         try:
             self.model, self.processor = load_from_pretrained(ckpt=self.model_id, 
                                                             num_q=1000, 

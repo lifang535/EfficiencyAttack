@@ -29,8 +29,8 @@ parser.add_argument('--model_id', type=int, default=None, choices=[0,1,2], help=
                                                                                  1: PekingU/rtdetr_r50vd_coco_o365, \
                                                                                  2: PekingU/rtdetr_v2_r50vd")
 parser.add_argument('--save_dir', type=str, default="../saved", help="save perturbed images")
-parser.add_argument('--if_output', type=bool, default=True, help="if output the result")
-parser.add_argument('--if_save', type=bool, default=True, help="if save the perturbed images")
+parser.add_argument('--if_output', type=bool, default=True, help="if output the json result")
+parser.add_argument('--if_save', type=bool, default=False, help="if save the perturbed images")
 parser.add_argument('--to_save_list', type=int, nargs='+', default=None, help="list of image indices to save")
 args = parser.parse_args()
 

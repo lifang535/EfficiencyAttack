@@ -105,6 +105,7 @@ if __name__ == "__main__":
     
     processes = [img_stream, od_stream, fr_stream, lpr_stream, cap_stream, kr_stream, lm_stream, queue_watch]
     queues = [img2od, od2fr, od2lpr, od2cap, fr2kr, lpr2kr, kr2lm, cap2lm]
+    queue_names = ["img2od", "od2fr", "od2lpr", "od2cap", "fr2kr", "lpr2kr", "kr2lm", "cap2lm"]
     
 
     logger.info("Starting processes")

@@ -10,7 +10,8 @@ from queue import Empty
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 import sqlite3
 sys.path.append("../")
-from flops import FLOPs_DECORATOR
+from flops import FLOPs_DECORATOR, write_profile
+from torch.profiler import profile, record_function, ProfilerActivity
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,15 +28,27 @@ class krStream(Process):
         self.stop_event = Event()
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-    def set_config(self, embedding_path):
+    def set_config(self, embedding_path, profile_save_path = None):
         self.embedding_path = embedding_path
-        
+        self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
+
     def shutdown(self):
         self.kr2lm_queue.put(None)
         self.stop_event.set()
         
-    @FLOPs_DECORATOR
     def run(self):
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                     with_flops=True,
+                     profile_memory=True,
+                     record_shapes=True
+                     ) as prof:
+            with record_function("lmStream"):
+                self._run()
+                
+        write_profile(prof, self.profile_save_path)
+        
+    # @FLOPs_DECORATOR
+    def _run(self):
         try:
             embed_num = self.load_face_embeddings()
             logger.info(f"{self.__class__.__name__:<12} : face embeddings loaded, found {embed_num} embeddings")

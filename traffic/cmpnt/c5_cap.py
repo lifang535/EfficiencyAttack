@@ -12,8 +12,10 @@ import os
 from torchvision import transforms
 from transformers import AutoModelForCausalLM # microsoft/git-base
 from transformers import AutoProcessor
-from flops import FLOPs_DECORATOR
+from flops import FLOPs_DECORATOR, write_profile
 from PIL import Image
+from torch.profiler import profile, record_function, ProfilerActivity
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,11 +32,23 @@ class capStream(Process):
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_id = None
     
-    def set_config(self, model_id="microsoft/git-base"):
+    def set_config(self, model_id="microsoft/git-base", profile_save_path = None):
         self.model_id = model_id
-        
-    @FLOPs_DECORATOR
+        self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
+
     def run(self):
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                     with_flops=True,
+                     profile_memory=True,
+                     record_shapes=True
+                     ) as prof:
+            with record_function("lmStream"):
+                self._run()
+                
+        write_profile(prof, self.profile_save_path)
+        
+    # @FLOPs_DECORATOR
+    def _run(self):
         try:
             self.resize_transform = transforms.Compose([
                 transforms.Resize((224, 224)),

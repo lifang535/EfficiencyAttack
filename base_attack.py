@@ -55,11 +55,7 @@ class BaseAttack:
         self.to_save_list = to_save_list
         
         self.buffer = []
-        
-        self._loss1 = 0.0
-        self._loss2 = 0.0
-        self._loss3 = 0.0
-        self._loss4 = 0.0
+
         
     def update_buffer(self, tensor, it, frequency=None):
         # frequency: how often to save the image

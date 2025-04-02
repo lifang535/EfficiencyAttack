@@ -82,7 +82,8 @@ class TeaSpoon(BaseAttack):
         with torch.no_grad():
             self.bx.data.clamp_(-0.04, 0.04)  
         
-        self.clone_loss([norm_loss, area_loss, cls_loss])
+        self.total_loss_cpu = total_loss.clone().detach().cpu().item()
+        
         return self.bx
         
     def cls_loss_target(self):
@@ -96,24 +97,16 @@ class TeaSpoon(BaseAttack):
         elif self.target_idx == None:
             target_tensor = torch.ones_like(self.prob)        
         return target_tensor
+    
+    def early_stop(self):
+        pass
 
     def factor_scheduler(self, it_count):
         alpha2 = 1 - math.cos(min(it_count / self.it_num * math.pi, math.pi / 2))
         alpha3 = 1 - math.cos(min(it_count / self.it_num * math.pi, math.pi / 2))
         alpha1 = 3 - alpha2 - alpha3
         return alpha1, alpha2, alpha3
-    
-    
-    def clone_loss(self, cuda_loss_list):
-        cpu_loss_list = [self._loss1, self._loss2, self._loss3, self._loss4]
-        assert len(cuda_loss_list) <= len(cpu_loss_list)
-        for i, loss in enumerate(cuda_loss_list):
-            if isinstance(loss, torch.Tensor):
-                cpu_loss_list[i] = cuda_loss_list[i].detach().clone().cpu().item()
-            else:
-                cpu_loss_list[i] = "n/a"
 
-        
     def logger(self, it):
         count = 0
         if self.target_idx:
@@ -128,8 +121,7 @@ class TeaSpoon(BaseAttack):
             "scores" : self.scores.tolist(),
             "boxes" : self.boxes.tolist(),
             "time" : self.elapsed_time,
-            "loss": [self._loss1, self._loss2, self._loss3, self._loss4]
-            
+            "loss": self.total_loss_cpu
         }
         
         self.result_dict[it] = tmp_dict

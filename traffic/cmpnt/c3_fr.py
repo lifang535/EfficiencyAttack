@@ -6,10 +6,12 @@ from PIL import Image
 import torch
 import sys
 sys.path.append("../")
-from flops import FLOPs_DECORATOR
+from flops import FLOPs_DECORATOR, write_profile
 import torch.nn.functional as F
 import logging
 import numpy as np
+from torch.profiler import profile, record_function, ProfilerActivity
+import os
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,11 +27,23 @@ class frStream(Process):
         self.stop_event = Event()
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def set_config(self, model_id="vggface2"):
+    def set_config(self, model_id="vggface2", profile_save_path = None):
         self.model_id = model_id
+        self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
 
-    @FLOPs_DECORATOR
     def run(self):
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                     with_flops=True,
+                     profile_memory=True,
+                     record_shapes=True
+                     ) as prof:
+            with record_function("lmStream"):
+                self._run()
+                
+        write_profile(prof, self.profile_save_path)
+        
+    # @FLOPs_DECORATOR
+    def _run(self):
         try:
             self.facenet = InceptionResnetV1(pretrained=f"{self.model_id}").eval().to(self.device)
             logger.info(f"{self.__class__.__name__:<12} : FR model loaded, model_id = {self.model_id}")
