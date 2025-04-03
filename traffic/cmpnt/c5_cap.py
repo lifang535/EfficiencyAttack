@@ -12,7 +12,7 @@ import os
 from torchvision import transforms
 from transformers import AutoModelForCausalLM # microsoft/git-base
 from transformers import AutoProcessor
-from flops import FLOPs_DECORATOR, write_profile
+from flops import FLOPs_DECORATOR, write_profile, write_profile_lt
 from PIL import Image
 from torch.profiler import profile, record_function, ProfilerActivity
 
@@ -23,28 +23,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+
 class capStream(Process):
     def __init__(self, od2cap_queue, cap2lm_queue, device=None):
         super().__init__(name="CAPStream")
         self.od2cap_queue = od2cap_queue
         self.cap2lm_queue = cap2lm_queue
         self.stop_event = Event()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device         
         self.model_id = None
     
     def set_config(self, model_id="microsoft/git-base", profile_save_path = None):
         self.model_id = model_id
         self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
 
-    def run(self):
+    def run(self):    
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                      with_flops=True,
-                     profile_memory=True,
-                     record_shapes=True
+                     profile_memory=False,
+                     record_shapes=False
                      ) as prof:
-            with record_function("lmStream"):
+            with record_function(f"{self.__class__.__name__}"):
                 self._run()
-                
         write_profile(prof, self.profile_save_path)
         
     # @FLOPs_DECORATOR
@@ -62,7 +63,7 @@ class capStream(Process):
             
             while not self.stop_event.is_set():
                 try:
-                    data = self.od2cap_queue.get(timeout=2.0)
+                    data = self.od2cap_queue.get(block=False)
                     if data is None:  # End signal
                         break
                     
@@ -71,9 +72,10 @@ class capStream(Process):
                     with torch.no_grad():
                         caption = self.inference(data_tensor)
                         
+                    while self.cap2lm_queue.full():
+                        time.sleep(1)
                     self.cap2lm_queue.put(caption)
                     
-                    del data_tensor, caption
                     torch.cuda.empty_cache()
                     
                 except Empty:
@@ -88,9 +90,35 @@ class capStream(Process):
             self.shutdown()
 
     def shutdown(self):
-        self.stop_event.set()
+        while self.cap2lm_queue.full():
+            time.sleep(1)
         self.cap2lm_queue.put(None)
+        self.stop_event.set()
         
+        try:
+            if hasattr(self, 'model'):
+                try:
+                    self.model = self.model.to("cpu")
+                except:
+                    pass
+                del self.model
+                self.model = None
+            if hasattr(self, 'processor'):
+                del self.processor
+                self.processor = None
+                
+            if torch.cuda.is_available():
+                try:
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                except:
+                    pass
+                
+        except Exception as e:
+            logger.error(f"{self.__class__.__name__:<12} : error in shutting down {str(e)}")
+        finally:
+            logger.info(f"{self.__class__.__name__:<12} : shutdown successful")
+            
     def inference(self, data_tensor):
         if isinstance(data_tensor, Image.Image):
             # Process PIL Image

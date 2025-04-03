@@ -57,7 +57,7 @@ class odStream(Process):
                 try:
                                         
                     # Get next image with timeout
-                    data = self.img2od_queue.get(timeout=2.0)
+                    data = self.img2od_queue.get(block=False)0)
                     
                     # Check for end signal
                     if data is None:

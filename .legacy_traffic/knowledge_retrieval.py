@@ -68,7 +68,7 @@ class krStream(Process):
                     
                     # Process face recognition data if available
                     if not fr_end_received and not self.fr2kr_queue.empty():
-                        data = self.fr2kr_queue.get(timeout=2.0)
+                        data = self.fr2kr_queue.get(block=False)0)
                         if data is None:
                             fr_end_received = True
                             logger.info("Received end signal from FR stream")
@@ -77,7 +77,7 @@ class krStream(Process):
                     
                     # Process license plate data if available
                     elif not lpr_end_received and not self.lpr2kr_queue.empty():
-                        data = self.lpr2kr_queue.get(timeout=2.0)
+                        data = self.lpr2kr_queue.get(block=False)0)
                         if data is None:
                             lpr_end_received = True
                             logger.info("Received end signal from LPR stream")

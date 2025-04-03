@@ -25,7 +25,7 @@ parser.add_argument('--algorithm', type=str, default=None, choices=["overload",
                                                                     "teaspoon", 
                                                                     "teastatic"], help="algorithm not found")
 parser.add_argument('--target_idx', type=int, nargs='+', default=None, help="List of numbers, unavailable for baseline")
-parser.add_argument("--ps_path", type=str, default="./profile", help="Path to save profile data")
+parser.add_argument("--ps_path", type=str, default="./profile_var1", help="Path to save profile data")
 args = parser.parse_args()
 
 if args.target_idx:
@@ -39,7 +39,7 @@ algorithm = args.algorithm
 
 if algorithm is None:
     input_dir = "./test_src"
-    ps_path = "./test_profile"
+    ps_path = "./test_profile_var1"
 else:
     ps_path = os.path.join(args.ps_path, f"model_{args.model_id}", f"{args.algorithm}_tgt_{target_indices}")
     input_dir = os.path.join(base_dir, f"model_{args.model_id}", f"{args.algorithm}_tgt_{target_indices}")
@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     date_time = time.strftime("%Y-%m-%d %H:%M:%S")
     
-    title = "Running: Traffic Monitoring Pipeline"
+    title = "Running: Traffic VAR 1 Monitoring Pipeline"
     subtitle = f"Algorithm: {algorithm}, Model ID: {model_id}"
     subsubtitle = f"Target Indices: {target_indices}"
     
@@ -93,11 +93,14 @@ if __name__ == "__main__":
     cap2udp_queue = Queue(maxsize=ms)
     kr2udp_queue = Queue(maxsize=ms)
     
+    cap2udp_queue.put(None)
+    od2cap_queue.put(None)
+    
     img_stream = imgStream(img2od_queue, device)
     od_stream = odStream(img2od_queue, od2fr_queue, od2lpr_queue, od2cap_queue, device)
     fr_stream = frStream(od2fr_queue, fr2kr_queue, device)
     lpr_stream = lprStream(od2lpr_queue, lpr2kr_queue, device)
-    cap_stream = capStream(od2cap_queue, cap2udp_queue, device)
+    # cap_stream = capStream(od2cap_queue, cap2udp_queue, device)
     kr_stream = krStream(fr2kr_queue, lpr2kr_queue, kr2udp_queue, device)
     udp_Stream = udpStream(cap2udp_queue, kr2udp_queue, device)
     
@@ -105,14 +108,18 @@ if __name__ == "__main__":
     od_stream.set_config(model_id=model_id, profile_save_path=ps_path)
     fr_stream.set_config(profile_save_path=ps_path)
     lpr_stream.set_config(profile_save_path=ps_path)
-    cap_stream.set_config(profile_save_path=ps_path)
+    # cap_stream.set_config(profile_save_path=ps_path)
     kr_stream.set_config(embedding_path="./face_embeddings", profile_save_path=ps_path)
     udp_Stream.set_config(profile_save_path=ps_path)
 
     
-    processes = [img_stream, od_stream, fr_stream, lpr_stream, cap_stream, kr_stream, udp_Stream]
-    queues = [img2od_queue, od2fr_queue, od2lpr_queue, od2cap_queue, fr2kr_queue, lpr2kr_queue, cap2udp_queue, kr2udp_queue]
-    queue_names = ["img2od", "od2fr", "od2lpr", "od2cap", "fr2kr", "lpr2kr", "cap2udp", "kr2udp"]
+    # processes = [img_stream, od_stream, fr_stream, lpr_stream, cap_stream, kr_stream, udp_Stream]
+    processes = [img_stream, od_stream, fr_stream, lpr_stream, kr_stream, udp_Stream]
+
+    # queues = [img2od_queue, od2fr_queue, od2lpr_queue, od2cap_queue, fr2kr_queue, lpr2kr_queue, cap2udp_queue, kr2udp_queue]
+    # queue_names = ["img2od", "od2fr", "od2lpr", "od2cap", "fr2kr", "lpr2kr", "cap2udp", "kr2udp"]
+    queues = [img2od_queue, od2fr_queue, od2lpr_queue, fr2kr_queue, lpr2kr_queue, kr2udp_queue]
+    queue_names = ["img2od", "od2fr", "od2lpr", "fr2kr", "lpr2kr", "kr2udp"]
     
     from queue_watch import QueueWatch
     queue_watcher = QueueWatch(queues, queue_names)
@@ -124,11 +131,11 @@ if __name__ == "__main__":
         time.sleep(0.1)  # Optional: small delay to ensure all processes start properly
     
     try:
+        queue_watcher.join()
         for p in processes:
             p.join()
             time.sleep(0.1)  # Optional: small delay to ensure all processes finish properly
-        queue_watcher.join()
-        
+
     except KeyboardInterrupt:
         logger.info("Interrupted by user in MAIN process")
     except Exception as e:

@@ -10,7 +10,7 @@ from queue import Empty
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 import sqlite3
 sys.path.append("../")
-from flops import FLOPs_DECORATOR, write_profile
+from flops import FLOPs_DECORATOR, write_profile, write_profile_lt
 from torch.profiler import profile, record_function, ProfilerActivity
 
 logging.basicConfig(
@@ -26,25 +26,42 @@ class krStream(Process):
         self.lpr2kr_queue = lpr2kr_queue
         self.kr2lm_queue = kr2lm_queue
         self.stop_event = Event()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device         
         
     def set_config(self, embedding_path, profile_save_path = None):
         self.embedding_path = embedding_path
         self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
 
     def shutdown(self):
+        while self.kr2lm_queue.full():
+            time.sleep(1)
         self.kr2lm_queue.put(None)
         self.stop_event.set()
         
-    def run(self):
+        try:
+            if hasattr(self, "stored_embeddings"):
+                del self.stored_embeddings
+                self.stored_embeddings = None
+            
+            if torch.cuda.is_available():
+                try:
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                except:
+                    pass
+        except Exception as e:
+            logger.error(f"{self.__class__.__name__:<12} : error in shutting down {str(e)}")
+        finally:
+            logger.info(f"{self.__class__.__name__:<12} : shutdown successful")
+        
+    def run(self):    
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                      with_flops=True,
-                     profile_memory=True,
-                     record_shapes=True
+                     profile_memory=False,
+                     record_shapes=False
                      ) as prof:
-            with record_function("lmStream"):
+            with record_function(f"{self.__class__.__name__}"):
                 self._run()
-                
         write_profile(prof, self.profile_save_path)
         
     # @FLOPs_DECORATOR
@@ -63,7 +80,7 @@ class krStream(Process):
 
                 if not fr_end_received:
                     try:
-                        data = self.fr2kr_queue.get(timeout=2.0)
+                        data = self.fr2kr_queue.get(block=False)
                         if data is None:  # End signal
                             fr_end_received = True
                             logger.info(f"{self.__class__.__name__:<12} : Received end signal from FR")
@@ -74,7 +91,7 @@ class krStream(Process):
                     
                 if not lpr_end_received:
                     try:
-                        data = self.lpr2kr_queue.get(timeout=2.0)
+                        data = self.lpr2kr_queue.get(block=False)
                         if data is None:  # End signal
                             lpr_end_received = True
                             logger.info(f"{self.__class__.__name__:<12} : Received end signal from LPR")
@@ -115,6 +132,9 @@ class krStream(Process):
         with torch.no_grad():
             best_match, similarity = self.find_most_similar(data)
             result_string = f"{best_match}|{float(similarity):.4f}"
+            
+            while self.kr2lm_queue.full():
+                time.sleep(1)
             self.kr2lm_queue.put(result_string)
             
             # Clean up
@@ -126,6 +146,9 @@ class krStream(Process):
         """Process license plate recognition data"""
         with torch.no_grad():
             query_result = self.db_query(data)
+            
+            while self.kr2lm_queue.full():
+                time.sleep(1)
             self.kr2lm_queue.put(query_result)
             
             # Clean up

@@ -12,7 +12,7 @@ import sys
 import time
 from PIL import Image
 sys.path.append("../")
-from flops import FLOPs_DECORATOR, write_profile
+from flops import FLOPs_DECORATOR, write_profile, write_profile_lt
 from torch.profiler import profile, record_function, ProfilerActivity
 # from model import create_model # https://github.com/dbpprt/pytorch-licenseplate-segmentation/tree/master
 from fast_plate_ocr import ONNXPlateRecognizer # https://github.com/ankandrew/fast-plate-ocr
@@ -25,13 +25,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 class lprStream(Process):
     def __init__(self, od2lpr_queue, lpr2kr_queue, device=None):
         super().__init__(name="LPRStream")
         self.od2lpr_queue = od2lpr_queue
         self.lpr2kr_queue = lpr2kr_queue
         self.stop_event = Event()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device         
         self.model_id = None
         
     def set_config(self, model_id="cmpnt/model_v2.pth", profile_save_path = None):
@@ -39,18 +40,48 @@ class lprStream(Process):
         self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
 
     def shutdown(self):
+        while self.lpr2kr_queue.full():
+            time.sleep(1)
         self.lpr2kr_queue.put(None)
         self.stop_event.set()
         
-    def run(self):
+        try:
+            if hasattr(self, 'deeplabv3'):
+                try:
+                    self.deeplabv3 = self.deeplabv3.to("cpu")
+                except:
+                    pass
+                del self.deeplabv3
+                self.deeplabv3 = None
+            if hasattr(self, 'onnx_lp_ocr'):
+                del self.onnx_lp_ocr
+                self.onnx_lp_ocr = None
+            if hasattr(self, 'checkpoint'):
+                del self.checkpoint
+                self.checkpoint = None
+            if torch.cuda.is_available():
+                try:
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                except:
+                    pass
+        except Exception as e:
+            logger.error(f"{self.__class__.__name__:<12} : error in shutting down {str(e)}")
+        finally:
+            logger.info(f"{self.__class__.__name__:<12} : shutdown successful")
+            
+    def run(self):    
+        torch.cuda.synchronize()    
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                      with_flops=True,
-                     profile_memory=True,
-                     record_shapes=True
+                     profile_memory=False,
+                     record_shapes=False
                      ) as prof:
-            with record_function("lmStream"):
+            with record_function(f"{self.__class__.__name__}"):
+                torch.cuda.synchronize()
                 self._run()
-                
+                torch.cuda.synchronize()   
+        torch.cuda.synchronize()
         write_profile(prof, self.profile_save_path)
         
     # @FLOPs_DECORATOR
@@ -66,7 +97,7 @@ class lprStream(Process):
             logger.info(f"{self.__class__.__name__:<12} : started")
             while not self.stop_event.is_set():
                 try:                    
-                    data = self.od2lpr_queue.get(timeout=2.0)
+                    data = self.od2lpr_queue.get(block=False)
                     if data is None:
                         logger.info(f"{self.__class__.__name__:<12} : Received end signal")
                         break
@@ -80,9 +111,10 @@ class lprStream(Process):
                         plate_text = self.ocr(plate_tensor)[0]
                     
                     # Send the result to the next queue
+                    while self.lpr2kr_queue.full():
+                        time.sleep(1)
                     self.lpr2kr_queue.put(plate_text)
                     
-                    del data_tensor, pred, plate_tensor, plate_text
                     torch.cuda.empty_cache()
                 
                 except Empty:
@@ -147,3 +179,4 @@ class lprStream(Process):
         model.classifier = DeepLabHead(2048, outputchannels)
 
         return model
+    

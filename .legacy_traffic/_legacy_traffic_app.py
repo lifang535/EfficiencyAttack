@@ -110,7 +110,7 @@ class odStream(Process):
             while not self.stop_event.is_set():
                 try:
                     # Get next image with timeout
-                    data = self.img2od_queue.get(timeout=2.0)
+                    data = self.img2od_queue.get(block=False)0)
                     
                     # Check for end signal
                     if data is None:
@@ -247,7 +247,7 @@ class frStream(Process):
             
             while not self.stop_event.is_set():
                 try:
-                    data = self.od2fr_queue.get(timeout=2.0)
+                    data = self.od2fr_queue.get(block=False)0)
                     
                     if data is None:
                         logger.info("Received end signal")
@@ -310,7 +310,7 @@ class lprStream(Process):
             
             while not self.stop_event.is_set():
                 try:
-                    data = self.od2lpr_queue.get(timeout=2.0)
+                    data = self.od2lpr_queue.get(block=False)0)
                     
                     if data is None:
                         logger.info("Received end signal")
@@ -374,7 +374,7 @@ class capStream(Process):
             
             while not self.stop_event.is_set():
                 try:
-                    data = self.od2cap_queue.get(timeout=2.0)
+                    data = self.od2cap_queue.get(block=False)0)
                     
                     if data is None:
                         logger.info("Received end signal")

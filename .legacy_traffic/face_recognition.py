@@ -64,7 +64,7 @@ class frStream(Process):
                 try:
                     # Non-blocking queue check
                     try:
-                        data = self.od2fr_queue.get(timeout=2.0)
+                        data = self.od2fr_queue.get(block=False)0)
                     except Empty:
                         # Timeout occurred, check if we should exit
                         continue

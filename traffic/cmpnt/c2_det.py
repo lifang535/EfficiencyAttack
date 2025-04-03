@@ -6,7 +6,7 @@ from multiprocessing import Process, Queue, Event
 import torch
 import glob
 import time
-from flops import FLOPs_DECORATOR, write_profile
+from flops import FLOPs_DECORATOR, write_profile, write_profile_lt
 import numpy as np
 import os
 from torchvision import transforms
@@ -39,20 +39,48 @@ class odStream(Process):
         self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
 
     def shutdown(self):
+        while self.od2fr_queue.full() or self.od2lpr_queue.full() or self.od2cap_queue.full(): 
+            time.sleep(1)
+            
         self.od2fr_queue.put(None)  
         self.od2lpr_queue.put(None) 
         self.od2cap_queue.put(None) 
         self.stop_event.set()
         
-    def run(self):
+        try:
+            if hasattr(self, 'model'):
+                try:
+                    self.model = self.model.to("cpu")
+                except:
+                    pass
+                del self.model
+                self.model = None
+            if hasattr(self, 'processor'):
+                del self.processor
+                self.processor = None
+            if torch.cuda.is_available():
+                try:
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                except:
+                    pass
+        except Exception as e:
+            logger.error(f"{self.__class__.__name__:<12} : error in shutting down {str(e)}")
+        finally:
+            logger.info(f"{self.__class__.__name__:<12} : shutdown successful")
+        
+    def run(self):    
+        torch.cuda.synchronize()    
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                      with_flops=True,
-                     profile_memory=True,
-                     record_shapes=True
+                     profile_memory=False,
+                     record_shapes=False
                      ) as prof:
-            with record_function("lmStream"):
+            with record_function(f"{self.__class__.__name__}"):
+                torch.cuda.synchronize()
                 self._run()
-                
+                torch.cuda.synchronize()   
+        torch.cuda.synchronize()
         write_profile(prof, self.profile_save_path)
         
     # @FLOPs_DECORATOR
@@ -68,7 +96,7 @@ class odStream(Process):
                 # Get next image with timeout
                 
                 try:
-                    data = self.img2od_queue.get(timeout=2.0)
+                    data = self.img2od_queue.get(block=False)
                     if data is None:  # End signal
                         break
                 except Empty:
@@ -90,19 +118,31 @@ class odStream(Process):
                 
                 _, labels, boxes = output["scores"], output["labels"], output["boxes"]
 
-                for label, box in zip(labels, boxes):
-                    if int(label.item()) == 0:
-                        cropped_np = self.crop_box(data_tensor, box)  
+                face_indices = (labels == 0).nonzero(as_tuple=True)[0]
+                plate_indices = (labels == 2).nonzero(as_tuple=True)[0]
+                
+                if len(face_indices) > 0:
+                    for idx in face_indices:
+                        cropped_np = self.crop_box(data_tensor, boxes[idx])
+                        while self.od2fr_queue.full():
+                            time.sleep(1)
                         self.od2fr_queue.put(cropped_np)
-                    
-                    elif int(label.item()) == 2:
-                        cropped_np = self.crop_box(data_tensor, box)  
+                
+                if len(plate_indices) > 0:
+                    for idx in plate_indices:
+                        cropped_np = self.crop_box(data_tensor, boxes[idx])
+                        while self.od2lpr_queue.full():
+                            time.sleep(1)
                         self.od2lpr_queue.put(cropped_np)
-                    
-                cropped_np = self.crop_box(data_tensor)  
-                self.od2cap_queue.put(cropped_np)
+                                
+                if len(face_indices) > 0 or len(plate_indices) > 0:
+                    all_indices = torch.cat([face_indices, plate_indices]) if len(face_indices) > 0 and len(plate_indices) > 0 else face_indices if len(face_indices) > 0 else plate_indices
+                    merged_box = self.merge_bbox(all_indices, boxes)
+                    cropped_np = self.crop_box(data_tensor, merged_box)  
+                    while self.od2cap_queue.full():
+                        time.sleep(1)
+                    self.od2cap_queue.put(cropped_np)
                         
-                del cropped_np, data_tensor
                 torch.cuda.empty_cache()
             
         except Exception as e:
@@ -111,6 +151,7 @@ class odStream(Process):
             logger.error(f"{self.__class__.__name__:<12} : interrupted by user")
         finally:
             logger.info(f"{self.__class__.__name__:<12} : Received END signal, shutting down")
+            del self.model, self.processor
             self.shutdown()
 
     def crop_box(self, data_tensor, box=None):
@@ -136,6 +177,21 @@ class odStream(Process):
         std = torch.tensor(std).view(-1, 1, 1).to(tensor.device)
         tensor = tensor * std + mean
         return tensor
+
+    def merge_bbox(self, all_indices, boxes):
+        # Get coordinates for all boxes
+        all_boxes = boxes[all_indices]
+        
+        # Find the min/max coordinates to create a single large bounding box
+        x_min = torch.min(all_boxes[:, 0])
+        y_min = torch.min(all_boxes[:, 1])
+        x_max = torch.max(all_boxes[:, 2])
+        y_max = torch.max(all_boxes[:, 3])
+        
+        # Create merged bounding box
+        merged_box = torch.tensor([x_min, y_min, x_max, y_max]).to(self.device)
+    
+        return merged_box
 
 
 if __name__ == "__main__":

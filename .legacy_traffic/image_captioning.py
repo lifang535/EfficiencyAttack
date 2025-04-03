@@ -62,7 +62,7 @@ class capStream(Process):
             while not self.stop_event.is_set():
                 try:
                     # Get data from the queue with timeout
-                    data = self.od2cap_queue.get(timeout=2.0)
+                    data = self.od2cap_queue.get(block=False)0)
                     
                     if data is None:
                         logger.info("Received end signal")

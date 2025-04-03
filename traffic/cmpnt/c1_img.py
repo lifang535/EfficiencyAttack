@@ -5,7 +5,7 @@ from multiprocessing import Process, Queue, Event
 import torch
 import glob
 import time
-from flops import FLOPs_DECORATOR, write_profile
+from flops import FLOPs_DECORATOR, write_profile, write_profile_lt
 import numpy as np
 import os
 from torchvision import transforms
@@ -34,15 +34,18 @@ class imgStream(Process):
         self.fps = fps
         self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
 
-    def run(self):
+    def run(self):    
+        torch.cuda.synchronize()    
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                      with_flops=True,
-                     profile_memory=True,
-                     record_shapes=True
+                     profile_memory=False,
+                     record_shapes=False
                      ) as prof:
-            with record_function("lmStream"):
+            with record_function(f"{self.__class__.__name__}"):
+                torch.cuda.synchronize()
                 self._run()
-                
+                torch.cuda.synchronize()   
+        torch.cuda.synchronize()
         write_profile(prof, self.profile_save_path)
         
     # @FLOPs_DECORATOR
@@ -59,12 +62,12 @@ class imgStream(Process):
                 # data_tensor = self.ultra_fast_load(p, device=self.device)
                 data_nparray = self.ultra_fast_load(p, device=None)
                 
+                while self.img2od_queue.full():
+                    time.sleep(1)
                 self.img2od_queue.put(data_nparray)
                 
                 time.sleep(1/self.fps)  
                 
-                # del data_tensor
-                del data_nparray
                 torch.cuda.empty_cache()
                 
             logger.info(f"{self.__class__.__name__:<12} : completed, sending END signal")
@@ -80,6 +83,18 @@ class imgStream(Process):
     def shutdown(self):
         self.img2od_queue.put(None)
         self.stop_event.set()  
+        
+        try:
+            if torch.cuda.is_available():
+                try:
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                except:
+                    pass
+        except Exception as e:
+            logger.error(f"{self.__class__.__name__:<12} : error in shutting down {str(e)}")
+        finally:
+            logger.info(f"{self.__class__.__name__:<12} : shutdown successful")
         
                         
     def ultra_fast_load(self, filepath, device=None):
@@ -112,7 +127,7 @@ class imgStream(Process):
                 return tensor
             else:
                 return np_array
-    
-    
+
+            
 if __name__ == "__main__":
     pass

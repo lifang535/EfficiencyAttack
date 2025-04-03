@@ -12,6 +12,8 @@ import logging
 import numpy as np
 from torch.profiler import profile, record_function, ProfilerActivity
 import os
+import time
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,21 +27,20 @@ class frStream(Process):
         self.od2fr_queue = od2fr_queue
         self.fr2kr_queue = fr2kr_queue
         self.stop_event = Event()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+        self.device = device 
+        
     def set_config(self, model_id="vggface2", profile_save_path = None):
         self.model_id = model_id
         self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
 
-    def run(self):
+    def run(self):    
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                      with_flops=True,
-                     profile_memory=True,
-                     record_shapes=True
+                     profile_memory=False,
+                     record_shapes=False
                      ) as prof:
-            with record_function("lmStream"):
+            with record_function(f"{self.__class__.__name__}"):
                 self._run()
-                
         write_profile(prof, self.profile_save_path)
         
     # @FLOPs_DECORATOR
@@ -51,7 +52,7 @@ class frStream(Process):
             while not self.stop_event.is_set():
                 # Get next image with timeout
                 try:
-                    data = self.od2fr_queue.get(timeout=2.0)
+                    data = self.od2fr_queue.get(block=False)
                     if data is None:  # End signal
                         break
                 except Empty:
@@ -64,9 +65,10 @@ class frStream(Process):
                 with torch.no_grad():
                     face_embedding = self.facenet(padded_image).cpu().numpy()
                     
+                while self.fr2kr_queue.full():
+                    time.sleep(1)
                 self.fr2kr_queue.put(face_embedding)
                 
-                del data_tensor, padded_image, face_embedding
                 torch.cuda.empty_cache()
         
         except Exception as e:
@@ -78,9 +80,30 @@ class frStream(Process):
             self.shutdown()
             
     def shutdown(self):
-        self.stop_event.set()
+        while self.fr2kr_queue.full():
+            time.sleep(1)
         self.fr2kr_queue.put(None)
-
+        self.stop_event.set()
+        
+        try:
+            if hasattr(self, 'facenet'):
+                try:
+                    self.facenet = self.facenet.to("cpu")
+                except:
+                    pass
+                del self.facenet
+                self.facenet = None
+            if torch.cuda.is_available():
+                try:
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                except:
+                    pass
+        except Exception as e:
+            logger.error(f"{self.__class__.__name__:<12} : error in shutting down {str(e)}")
+        finally:
+            logger.info(f"{self.__class__.__name__:<12} : shutdown successful")
+            
     def facenet_padding(self, image, min_size=160):
         # Get current dimensions
         if image.dim() == 4:
