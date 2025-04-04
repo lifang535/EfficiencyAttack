@@ -34,7 +34,7 @@ class krStream(Process):
 
     def shutdown(self):
         while self.kr2lm_queue.full():
-            time.sleep(1)
+            time.sleep(0.01)
         self.kr2lm_queue.put(None)
         self.stop_event.set()
         
@@ -134,7 +134,7 @@ class krStream(Process):
             result_string = f"{best_match}|{float(similarity):.4f}"
             
             while self.kr2lm_queue.full():
-                time.sleep(1)
+                time.sleep(0.01)
             self.kr2lm_queue.put(result_string)
             
             # Clean up
@@ -148,7 +148,7 @@ class krStream(Process):
             query_result = self.db_query(data)
             
             while self.kr2lm_queue.full():
-                time.sleep(1)
+                time.sleep(0.01)
             self.kr2lm_queue.put(query_result)
             
             # Clean up

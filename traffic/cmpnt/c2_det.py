@@ -40,7 +40,7 @@ class odStream(Process):
 
     def shutdown(self):
         while self.od2fr_queue.full() or self.od2lpr_queue.full() or self.od2cap_queue.full(): 
-            time.sleep(1)
+            time.sleep(0.01)
             
         self.od2fr_queue.put(None)  
         self.od2lpr_queue.put(None) 
@@ -125,14 +125,14 @@ class odStream(Process):
                     for idx in face_indices:
                         cropped_np = self.crop_box(data_tensor, boxes[idx])
                         while self.od2fr_queue.full():
-                            time.sleep(1)
+                            time.sleep(0.01)
                         self.od2fr_queue.put(cropped_np)
                 
                 if len(plate_indices) > 0:
                     for idx in plate_indices:
                         cropped_np = self.crop_box(data_tensor, boxes[idx])
                         while self.od2lpr_queue.full():
-                            time.sleep(1)
+                            time.sleep(0.01)
                         self.od2lpr_queue.put(cropped_np)
                                 
                 if len(face_indices) > 0 or len(plate_indices) > 0:
@@ -140,7 +140,7 @@ class odStream(Process):
                     merged_box = self.merge_bbox(all_indices, boxes)
                     cropped_np = self.crop_box(data_tensor, merged_box)  
                     while self.od2cap_queue.full():
-                        time.sleep(1)
+                        time.sleep(0.01)
                     self.od2cap_queue.put(cropped_np)
                         
                 torch.cuda.empty_cache()

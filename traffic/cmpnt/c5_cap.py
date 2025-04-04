@@ -73,7 +73,7 @@ class capStream(Process):
                         caption = self.inference(data_tensor)
                         
                     while self.cap2lm_queue.full():
-                        time.sleep(1)
+                        time.sleep(0.01)
                     self.cap2lm_queue.put(caption)
                     
                     torch.cuda.empty_cache()
@@ -91,7 +91,7 @@ class capStream(Process):
 
     def shutdown(self):
         while self.cap2lm_queue.full():
-            time.sleep(1)
+            time.sleep(0.01)
         self.cap2lm_queue.put(None)
         self.stop_event.set()
         

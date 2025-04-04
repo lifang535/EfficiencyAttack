@@ -63,7 +63,7 @@ class imgStream(Process):
                 data_nparray = self.ultra_fast_load(p, device=None)
                 
                 while self.img2od_queue.full():
-                    time.sleep(1)
+                    time.sleep(0.01)
                 self.img2od_queue.put(data_nparray)
                 
                 time.sleep(1/self.fps)  
@@ -81,6 +81,8 @@ class imgStream(Process):
             self.shutdown()
                 
     def shutdown(self):
+        while self.img2od_queue.full():
+            time.sleep(0.01)
         self.img2od_queue.put(None)
         self.stop_event.set()  
         

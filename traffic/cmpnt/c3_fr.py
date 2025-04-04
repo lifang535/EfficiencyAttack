@@ -66,7 +66,7 @@ class frStream(Process):
                     face_embedding = self.facenet(padded_image).cpu().numpy()
                     
                 while self.fr2kr_queue.full():
-                    time.sleep(1)
+                    time.sleep(0.01)
                 self.fr2kr_queue.put(face_embedding)
                 
                 torch.cuda.empty_cache()
@@ -81,7 +81,7 @@ class frStream(Process):
             
     def shutdown(self):
         while self.fr2kr_queue.full():
-            time.sleep(1)
+            time.sleep(0.01)
         self.fr2kr_queue.put(None)
         self.stop_event.set()
         

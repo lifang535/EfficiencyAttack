@@ -55,7 +55,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
+            
 if __name__ == "__main__":
     date_time = time.strftime("%Y-%m-%d %H:%M:%S")
     
@@ -82,7 +82,7 @@ if __name__ == "__main__":
 
     mp.set_start_method("spawn")
     
-    ms = 100
+    ms = 1000
     
     img2od_queue = Queue(maxsize=ms)
     od2fr_queue = Queue(maxsize=ms)
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     queue_names = ["img2od", "od2fr", "od2lpr", "od2cap", "fr2kr", "lpr2kr", "cap2udp", "kr2udp"]
     
     from queue_watch import QueueWatch
-    queue_watcher = QueueWatch(queues, queue_names)
+    queue_watcher = QueueWatch(queues, queue_names, processes)
     queue_watcher.set_config()
     queue_watcher.start()
     

@@ -10,11 +10,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class QueueWatch(Process):
-    def __init__(self, queues, queue_names):
+    def __init__(self, queues, queue_names, processes):
         super().__init__(name="QueueWatch")
         self.queues = queues
         self.queue_names = queue_names
         self.stop_event = Event()
+        self.processes = processes
         
     def set_config(self, buffer_size=6):
         self.buffer_size = buffer_size
@@ -39,5 +40,8 @@ class QueueWatch(Process):
             time.sleep(5)
                 
             if sum(self.qsize_buffer) == 0:
-                logger.info(f"All queue are empty, job done")
+                logger.info(f"All queues empty, job done")
                 self.stop_event.set()
+            
+
+            

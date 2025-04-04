@@ -41,7 +41,7 @@ class lprStream(Process):
 
     def shutdown(self):
         while self.lpr2kr_queue.full():
-            time.sleep(1)
+            time.sleep(0.01)
         self.lpr2kr_queue.put(None)
         self.stop_event.set()
         
@@ -112,7 +112,7 @@ class lprStream(Process):
                     
                     # Send the result to the next queue
                     while self.lpr2kr_queue.full():
-                        time.sleep(1)
+                        time.sleep(0.01)
                     self.lpr2kr_queue.put(plate_text)
                     
                     torch.cuda.empty_cache()
