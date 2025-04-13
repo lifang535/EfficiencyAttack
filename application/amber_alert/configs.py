@@ -1,4 +1,4 @@
-method = 'original'
+method = 'original_10'
 
 # method = 'before_attacking' # 'before_attacking', 'after_attacking' or 'after_defending'
 # method = 'adaptive_attack' 'overload_attack' 'phantom_attack' 'single_attack'
@@ -12,19 +12,19 @@ config = {
     
     'video_start_id': 4,
     
-    'input_image_dir': f'./input_image/{method}', # use
+    'input_image_dir': f'../../input/{method}', # use
     
-    'output_image_dir': f'./output_image/{method}',
+    'output_image_dir': f'../../output/amber_alert/{method}',
     
     'frame_interval': 20000, # 1, # ms
     
     'monitor_interval': 100, # ms
     
-    'picture_dir': f'./picture/{method}',
-    'qsize_path': f'./picture/{method}/qsize.png',
-    'latency_path': f'./picture/{method}/latency.png',
-    'times_path': f'./picture/{method}/times.png',
-    'flops_path': f'./picture/{method}/flops.png',
+    'picture_dir': f'../../picture/amber_alert/{method}',
+    'qsize_path': f'../../picture/amber_alert/{method}/qsize.png',
+    'latency_path': f'../../picture/amber_alert/{method}/latency.png',
+    'times_path': f'../../picture/amber_alert/{method}/times.png',
+    'flops_path': f'../../picture/amber_alert/{method}/flops.png',
     
     'frame_size': (224, 224, 3),
     

@@ -32,7 +32,7 @@ if __name__ == '__main__':
     time.sleep(10)
     
     video_to_frame.start()
-    monitor.start()
+    # monitor.start()
 
     try:
         video_to_frame.join()
@@ -42,7 +42,7 @@ if __name__ == '__main__':
         frame_to_video.join()
         
         end_signal.value = True
-        monitor.join()
+        # monitor.join()
     except KeyboardInterrupt:
         print("[main] KeyboardInterrupt")
         video_to_frame.terminate()
@@ -50,7 +50,7 @@ if __name__ == '__main__':
         license_recognition.terminate()
         violation_detection.terminate()
         frame_to_video.terminate()
-        monitor.terminate()
+        # monitor.terminate()
 
     print("[main] Pipeline end!")
 

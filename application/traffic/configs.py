@@ -12,19 +12,19 @@ config = {
     
     'video_start_id': 4,
     
-    'input_image_dir': f'./input_image/{method}', # use
+    'input_image_dir': f'../../input/{method}', # use
     
-    'output_image_dir': f'./output_image/{method}',
+    'output_image_dir': f'../../output/traffic/{method}',
     
     'frame_interval': 100000, # 1, # ms
     
     'monitor_interval': 100, # ms
     
-    'picture_dir': f'./picture/{method}',
-    'qsize_path': f'./picture/{method}/qsize.png',
-    'latency_path': f'./picture/{method}/latency.png',
-    'times_path': f'./picture/{method}/times.png',
-    'flops_path': f'./picture/{method}/flops.png',
+    'picture_dir': f'../../picture/traffic/{method}',
+    'qsize_path': f'../../picture/traffic/{method}/qsize.png',
+    'latency_path': f'../../picture/traffic/{method}/latency.png',
+    'times_path': f'../../picture/traffic/{method}/times.png',
+    'flops_path': f'../../picture/traffic/{method}/flops.png',
     
     'frame_size': (224, 224, 3),
     

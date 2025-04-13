@@ -17,7 +17,10 @@ from configs import config, method
 from request import Request
 
 from pathlib import Path
-YOLOV5_FILE = Path(f"../model/yolov5").resolve()
+
+MODEL_PATH = "/root/lifang535/nsl_project/efficiency_attack/multi-model_application/ltx/update_five_applications/EfficiencyAttack/application/model"
+
+YOLOV5_FILE = Path(f"{MODEL_PATH}/yolov5").resolve()
 if str(YOLOV5_FILE) not in sys.path:
     sys.path.append(str(YOLOV5_FILE))  # add YOLOV5_FILE to PATH
 from models.common import DetectMultiBackend
@@ -964,8 +967,8 @@ class FrameToVideo(Process):
         plt.close()
 
     def _end(self):
-        self.draw_latency() # add
-        self.draw_times() # add
+        # self.draw_latency() # add
+        # self.draw_times() # add
         
         # self.draw_flops() # add
         
