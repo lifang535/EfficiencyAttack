@@ -1,0 +1,49 @@
+Correlation Summary:
+
+Folder: ../ablation/results/model_0/norm_tgt_0
+  total_loss_vs_person_count: r=-0.813, p=0.00000
+  cls_loss_vs_person_count: r=-0.993, p=0.00000
+  norm_loss_vs_person_count: r=0.858, p=0.00000
+
+Folder: ../ablation/results/model_0/area_tgt_0
+  total_loss_vs_person_count: r=0.229, p=0.00000
+  cls_loss_vs_person_count: r=-0.994, p=0.00000
+  area_loss_vs_person_count: r=0.230, p=0.00000
+
+Folder: ../ablation/results/model_0/norm_and_area_tgt_0
+  total_loss_vs_person_count: r=0.233, p=0.00000
+  cls_loss_vs_person_count: r=-0.993, p=0.00000
+  area_loss_vs_person_count: r=0.233, p=0.00000
+  norm_loss_vs_person_count: r=0.714, p=0.00000
+
+Folder: ../ablation/results/model_1/norm_tgt_0
+  total_loss_vs_person_count: r=-0.829, p=0.00000
+  cls_loss_vs_person_count: r=-0.995, p=0.00000
+  norm_loss_vs_person_count: r=0.890, p=0.00000
+
+Folder: ../ablation/results/model_1/area_tgt_0
+  total_loss_vs_person_count: r=0.554, p=0.00000
+  cls_loss_vs_person_count: r=-0.996, p=0.00000
+  area_loss_vs_person_count: r=0.555, p=0.00000
+
+Folder: ../ablation/results/model_1/norm_and_area_tgt_0
+  total_loss_vs_person_count: r=0.540, p=0.00000
+  cls_loss_vs_person_count: r=-0.996, p=0.00000
+  area_loss_vs_person_count: r=0.540, p=0.00000
+  norm_loss_vs_person_count: r=0.887, p=0.00000
+
+Folder: ../ablation/results/model_2/norm_tgt_0
+  total_loss_vs_person_count: r=-0.771, p=0.00000
+  cls_loss_vs_person_count: r=-0.989, p=0.00000
+  norm_loss_vs_person_count: r=0.771, p=0.00000
+
+Folder: ../ablation/results/model_2/area_tgt_0
+  total_loss_vs_person_count: r=0.218, p=0.00000
+  cls_loss_vs_person_count: r=-0.989, p=0.00000
+  area_loss_vs_person_count: r=0.219, p=0.00000
+
+Folder: ../ablation/results/model_2/norm_and_area_tgt_0
+  total_loss_vs_person_count: r=0.223, p=0.00000
+  cls_loss_vs_person_count: r=-0.989, p=0.00000
+  area_loss_vs_person_count: r=0.224, p=0.00000
+  norm_loss_vs_person_count: r=0.774, p=0.00000

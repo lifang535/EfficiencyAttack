@@ -24,7 +24,14 @@ parser.add_argument('--algorithm', type=str, default=None, choices=["overload",
                                                                     "slowtrack", 
                                                                     "phantom", 
                                                                     "teaspoon", 
-                                                                    "teastatic"], help="algorithm not found")
+                                                                    "teastatic",
+                                                                    "eps_2",
+                                                                    "eps_8",
+                                                                    "norm_and_area",
+                                                                    "norm",
+                                                                    "area",
+                                                                    "tea_100",
+                                                                    "tea_400"], help="algorithm not found")
 parser.add_argument('--model_id', type=int, default=None, choices=[0,1,2], help="0: PekingU/rtdetr_r50vd, \
                                                                                  1: PekingU/rtdetr_r50vd_coco_o365, \
                                                                                  2: PekingU/rtdetr_v2_r50vd")
@@ -69,6 +76,27 @@ def process_batch(
             from teastatic import TeaStatic
             class_name = TeaStatic
             pass
+        elif args.algorithm == "eps_2":
+            from eps_2 import TeaSpoon
+            class_name = TeaSpoon
+        elif args.algorithm == "eps_8":
+            from eps_8 import TeaSpoon
+            class_name = TeaSpoon
+        elif args.algorithm == "norm":
+            from norm import TeaSpoon
+            class_name = TeaSpoon
+        elif args.algorithm == "area":
+            from area import TeaSpoon
+            class_name = TeaSpoon
+        elif args.algorithm == "norm_and_area":
+            from norm_and_area import TeaSpoon
+            class_name = TeaSpoon
+        elif args.algorithm == "tea_100":
+            from tea_100 import TeaSpoon
+            class_name = TeaSpoon
+        elif args.algorithm == "tea_400":
+            from tea_400 import TeaSpoon
+            class_name = TeaSpoon
         else:
             raise ValueError("algorithm not implemented")
 

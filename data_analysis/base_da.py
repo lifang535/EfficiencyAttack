@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import os
-import json
+import ujson as json
 import sys
 from tqdm import tqdm
 from pathlib import Path
@@ -13,6 +13,7 @@ import glob
 import torch
 from scipy.stats import kendalltau
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 
 base_path = "../results"
@@ -232,6 +233,9 @@ def process_json(path_to_json, targeted_label_id, num_of_loss):
         print("[Warning] Skipping this file and continuing...\n")
         return [] 
     
+    if num_of_loss == -1:
+        labels = data[str(199)]["labels"]
+        return [len(labels), labels.count(0), labels.count(2), labels.count(68), labels.count(23)]
     results = []
     for i in range(len(data)):  #  200 iteration
         # iteration loss
@@ -400,9 +404,41 @@ def tea_tgt():
             error_log.write("Files that couldn't be processed:\n")
             for file_path, error in problematic_files:
                 error_log.write(f"{file_path}: {error}\n")
-                
+             
+from multiprocessing import Pool   
+def cal_199(path_to_jsons):
+    if "0" in path_to_jsons:
+        target_idx = 0
+    if "2" in path_to_jsons:
+        target_idx = 2
+    if "68" in path_to_jsons:
+        target_idx = 68
+    if "23" in path_to_jsons:
+        target_idx = 23
+    if "0_2" in path_to_jsons:
+        target_idx = [0, 2]
+    else:
+        pass
+    
+    jsons_path = get_json_paths(path_to_jsons)
+    print(f"Found {len(jsons_path)} JSON files in {path_to_jsons}")
+    
+    # Load all JSONs first
+    all_data = []
+    for j in tqdm(jsons_path, desc="Loading JSON files"):
+        with open(j, 'r') as f:
+            data = json.load(f)
+        all_data.append(data)  # Assuming j is the path and we're storing the path
 
-
+    # Now calculate
+    ret = np.zeros(5)
+    for entry in tqdm(all_data, desc="Processing JSON files"):
+        labels = entry[str(199)]["labels"]
+        count_list = [len(labels), labels.count(0), labels.count(2), labels.count(68), labels.count(23)]
+        ret += np.array(count_list)
+        
+    return ret
+        
 def loss(path_to_jsons):
     
     if "0" in path_to_jsons:
@@ -547,19 +583,17 @@ if __name__ == "__main__":
     # non_tgt()
     # tea_tgt()
     # early_stop_loss
-    paths = get_paths(base_path,
-                    model_id=None,
-                    algorithm=None,
-                    target_idx=True)
+    paths = get_paths(base_path)[1]
     print("Processing : ", len(paths))
 
     for p in paths:
-        loss(p)
+        # loss(p)
         # early_stop_loss(p, patience=5, threshold=0.01)
-
+        array = cal_199(p)
+        print(f"{p.rsplit('/', 1)[-1]} = {array}")
+        with open("output.py", "a") as f:
+            f.write(f"self.{p.rsplit('/', 1)[-1]} = {list(array)}\n")
         
-        
-    pass
 
             
             

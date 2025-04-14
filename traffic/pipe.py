@@ -15,7 +15,7 @@ import logging
 import argparse
 import json
 import glob
-from flops import summary
+from legacy_flops import summary
 
 parser = argparse.ArgumentParser(description="Traffic Monitoring Pipeline")
 parser.add_argument("--model_id", type=int, default=0, help="Model ID for object detection")
@@ -23,9 +23,12 @@ parser.add_argument('--algorithm', type=str, default=None, choices=["overload",
                                                                     "slowtrack", 
                                                                     "phantom", 
                                                                     "teaspoon", 
-                                                                    "teastatic"], help="algorithm not found")
+                                                                    "clean"], help="algorithm not found")
 parser.add_argument('--target_idx', type=int, nargs='+', default=None, help="List of numbers, unavailable for baseline")
 parser.add_argument("--ps_path", type=str, default="./profile", help="Path to save profile data")
+parser.add_argument("--eval_size", type=int, default=100, help="num of images to evaluate")
+parser.add_argument("--profiling", action="store_true", help="use internal pytorch profiler")
+parser.add_argument("--watch", type=float, default=1.0, help="use internal pytorch profiler")
 args = parser.parse_args()
 
 if args.target_idx:
@@ -36,8 +39,14 @@ else:
 base_dir = "../saved"
 model_id = args.model_id
 algorithm = args.algorithm
+eval_size = args.eval_size
+profiling = args.profiling
+watch_interval = args.watch
 
-if algorithm is None:
+if algorithm == "clean":
+    input_dir = "../saved/clean"
+    ps_path = os.path.join(args.ps_path, "clean")
+elif algorithm is None:
     input_dir = "./test_src"
     ps_path = "./test_profile"
 else:
@@ -77,8 +86,11 @@ if __name__ == "__main__":
     
     start_time = time.perf_counter()
     
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    torch.cuda.synchronize()
+    cuda_device_count = torch.cuda.device_count()
+    print(f"Number of CUDA devices: {cuda_device_count}")
+    cuda_idx = cuda_device_count - 1
+    
+    # torch.cuda.synchronize()
 
     mp.set_start_method("spawn")
     
@@ -93,6 +105,16 @@ if __name__ == "__main__":
     cap2udp_queue = Queue(maxsize=ms)
     kr2udp_queue = Queue(maxsize=ms)
     
+    # img_stream = imgStream(img2od_queue, "cuda:0")
+    # od_stream = odStream(img2od_queue, od2fr_queue, od2lpr_queue, od2cap_queue, "cuda:1")
+    # fr_stream = frStream(od2fr_queue, fr2kr_queue, "cuda:2")
+    # lpr_stream = lprStream(od2lpr_queue, lpr2kr_queue, "cuda:3")
+    # cap_stream = capStream(od2cap_queue, cap2udp_queue, "cuda:4")
+    # kr_stream = krStream(fr2kr_queue, lpr2kr_queue, kr2udp_queue, "cuda:5")
+    # udp_Stream = udpStream(cap2udp_queue, kr2udp_queue, "cuda:6")
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
     img_stream = imgStream(img2od_queue, device)
     od_stream = odStream(img2od_queue, od2fr_queue, od2lpr_queue, od2cap_queue, device)
     fr_stream = frStream(od2fr_queue, fr2kr_queue, device)
@@ -101,8 +123,9 @@ if __name__ == "__main__":
     kr_stream = krStream(fr2kr_queue, lpr2kr_queue, kr2udp_queue, device)
     udp_Stream = udpStream(cap2udp_queue, kr2udp_queue, device)
     
-    img_stream.set_config(src_folder_path = input_dir, fps = 30, profile_save_path=ps_path)
-    od_stream.set_config(model_id=model_id, profile_save_path=ps_path)
+    img_stream.set_config(src_folder_path = input_dir, fps = 30, profile_save_path=ps_path, eval_size=eval_size)
+    # od_stream.set_config(model_id=model_id, profile_save_path=ps_path)
+    od_stream.set_config(model_id=0, profile_save_path=ps_path)
     fr_stream.set_config(profile_save_path=ps_path)
     lpr_stream.set_config(profile_save_path=ps_path)
     cap_stream.set_config(profile_save_path=ps_path)
@@ -114,9 +137,12 @@ if __name__ == "__main__":
     queues = [img2od_queue, od2fr_queue, od2lpr_queue, od2cap_queue, fr2kr_queue, lpr2kr_queue, cap2udp_queue, kr2udp_queue]
     queue_names = ["img2od", "od2fr", "od2lpr", "od2cap", "fr2kr", "lpr2kr", "cap2udp", "kr2udp"]
     
+    for sub_p in processes:
+        sub_p.enable_profile(profiling)
+        
     from queue_watch import QueueWatch
-    queue_watcher = QueueWatch(queues, queue_names, processes)
-    queue_watcher.set_config()
+    queue_watcher = QueueWatch(queues, queue_names, processes, ps_path)
+    queue_watcher.set_config(sleep_time=watch_interval)
     queue_watcher.start()
     
     for p in processes:
@@ -140,4 +166,9 @@ if __name__ == "__main__":
         
     end_time = time.perf_counter()
     
-    summary(ps_path, start_time, end_time)
+    # summary(ps_path, start_time, end_time)
+    
+    time.sleep(5)
+    # torch.cuda.synchronize()
+    time.sleep(5)
+    torch.cuda.empty_cache()

@@ -1,3 +1,7 @@
+from pathlib import Path
+import torch
+from torchvision.io import read_image          # built‑in PNG/JPEG/PNG reader
+
 import sys
 sys.path.append("../")
 from tqdm import tqdm
@@ -5,7 +9,6 @@ from multiprocessing import Process, Queue, Event
 import torch
 import glob
 import time
-from legacy_flops import FLOPs_DECORATOR, write_profile, write_profile_lt
 import numpy as np
 import os
 from torchvision import transforms
@@ -18,7 +21,6 @@ import gc
 
 import pynvml
 import json
-
 
 random.seed(0)
 
@@ -41,6 +43,7 @@ class imgStream(Process):
         self.device = device
         
     def set_config(self, src_folder_path = None, fps = 30, profile_save_path = None, eval_size = 50):
+        os.makedirs(profile_save_path, exist_ok=True)
         self.src_folder_path = src_folder_path
         self.fps = fps
         self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
@@ -50,12 +53,46 @@ class imgStream(Process):
         self.flag = flag
         logger.info(f"{self.__class__.__name__:<12} : internal profiling set to {self.flag}")
 
+
+    def ultra_fast_load(self, tmp_p):
+        png_path = Path(tmp_p)
+        try:
+            img = read_image(str(png_path)).float() / 255.0  # Normalize to [0, 1]
+            if img.ndim == 3:
+                img = img.unsqueeze(0)  # Add batch dimension
+            elif img.ndim != 4:
+                raise ValueError(f"Unexpected image dimensions: {img.shape}")
+            return img.numpy()
+        except Exception as e:
+            print(f"Failed to load image at {tmp_p}: {e}")
+            return None
+
     def run(self):
         if self.flag:
             self.profile_run()
         else:
             self._run()
+            
+    def shutdown(self):
+        while self.img2od_queue.full():
+            time.sleep(0.01)
+        self.img2od_queue.put(None)
+        # self.img2od_queue.close()
+        self.stop_event.set()
         
+        try:
+            if torch.cuda.is_available():
+                try:
+                    torch.cuda.empty_cache()
+                    gc.collect()
+                    # torch.cuda.synchronize()
+                except:
+                    pass
+        except Exception as e:
+            logger.error(f"{self.__class__.__name__:<12} : error in shutting down {str(e)}")
+        finally:
+            logger.info(f"{self.__class__.__name__:<12} : shutdown successful")
+   
     def profile_run(self):    
         from torch.profiler import profile, record_function, ProfilerActivity
         from torch.profiler import schedule
@@ -76,6 +113,7 @@ class imgStream(Process):
         gc.collect()
         write_profile(prof, self.profile_save_path)
         
+        
     # @FLOPs_DECORATOR
     def _run(self):
         try:
@@ -85,7 +123,7 @@ class imgStream(Process):
             self.device_id = 0 if self.device.index is None else self.device.index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
 
-            _paths = sorted(glob.glob(f"{self.src_folder_path}/*.pt"))
+            _paths = sorted(glob.glob(f"{self.src_folder_path}/*.png"))
             print(self.src_folder_path)
             paths = random.sample(_paths, min(self.eval_size, len(_paths)))
             logger.info(f"{self.__class__.__name__:<12} : found {len(paths)} files, sampling {self.eval_size}")
@@ -96,7 +134,7 @@ class imgStream(Process):
                     break
                 
                 # data_tensor = self.ultra_fast_load(p, device=self.device)
-                data_nparray = self.ultra_fast_load(p, device=None)
+                data_nparray = self.ultra_fast_load(p)
                 
                 while self.img2od_queue.full():
                     time.sleep(0.01)
@@ -134,110 +172,28 @@ class imgStream(Process):
                 json.dump(content, f, indent=4)
 
             self.shutdown()
-                
-    def shutdown(self):
-        while self.img2od_queue.full():
-            time.sleep(0.01)
-        self.img2od_queue.put(None)
-        # self.img2od_queue.close()
-        self.stop_event.set()
+
+if __name__ == '__main__':
+    tmp_p = "../../savedyolo/clean/000001.png"  # path to your PNG
+    png_path = Path(tmp_p)
+    img = read_image(str(png_path))                
+    img_f32 = img.float() / 255                    
+    if len(img_f32.shape) == 3:
+        image = img_f32[None]
         
-        try:
-            if torch.cuda.is_available():
-                try:
-                    torch.cuda.empty_cache()
-                    gc.collect()
-                    # torch.cuda.synchronize()
-                except:
-                    pass
-        except Exception as e:
-            logger.error(f"{self.__class__.__name__:<12} : error in shutting down {str(e)}")
-        finally:
-            logger.info(f"{self.__class__.__name__:<12} : shutdown successful")
-        
-                        
-    def ultra_fast_load(self, filepath, device=None):
-        with open(filepath, 'rb') as f:
-            # Step 1: read number of shape dimensions (1 byte)
-            shape_dim = np.frombuffer(f.read(1), dtype=np.int8)[0]
-
-            # Step 2: read the shape (8 bytes per dimension)
-            shape = np.frombuffer(f.read(8 * shape_dim), dtype=np.int64)
-
-            # Step 3: read dtype string length (1 byte)
-            dtype_len = np.frombuffer(f.read(1), dtype=np.int8)[0]
-
-            # Step 4: read the dtype string
-            dtype_str = f.read(dtype_len).decode('ascii')  # e.g. '<f4'
-
-            # Step 5: interpret the rest of the file as data
-            np_dtype = np.dtype(dtype_str)
-            tensor_data = f.read()
-
-            np_array = np.frombuffer(tensor_data, dtype=np_dtype).copy().reshape(shape)
-            
-            # return np_array
-        
-            tensor = torch.from_numpy(np_array)
-
-            # Optional: move to device
-            if device is not None:
-                tensor = tensor.to(device)
-                return tensor
-            else:
-                return np_array
-
-            
-if __name__ == "__main__":
-    # tmp_queue = mp.Queue()
-    # instance = imgStream(tmp_queue, device="cuda")
-    # instance.set_config(src_folder_path="../test_src", fps=30, profile_save_path="../profile", eval_size=10)
-    # instance.enable_profile(False)
-    # instance.run()
-    # instance.shutdown()
-
+    print(f"shape : {tuple(img.shape)}")           # e.g. (3, 720, 1280)
+    print(f"min   : {img.min().item()}")           # 0 for uint8 PNGs
+    print(f"max   : {img.max().item()}")           # 255 for uint8 PNGs
+    print(f"mean  : {img_f32.mean().item():.6f}")  # use float for a precise mean
     
-    import pynvml
-    import time
-    import torch
-    def measure_gpu(device):
-        pynvml.nvmlInit()
-        device_id = 0 if device.index is None else device.index
-        handle = pynvml.nvmlDeviceGetHandleByIndex(device_id)
-        t1 = time.time()
-        power_list = []
-        tmp_queue = mp.Queue()
-        instance = imgStream(tmp_queue, device=device)
-        instance.set_config(src_folder_path="../test_src", fps=30, profile_save_path="../profile", eval_size=10)
-        instance.enable_profile(False)
-        instance.run()
-        instance.shutdown()
-        del tmp_queue
-        power = pynvml.nvmlDeviceGetPowerUsage(handle)
-        power_list.append(power)
-        t2 = time.time()
-        latency = t2 - t1
-        s_energy = sum(power_list) / len(power_list) * latency
-        energy = s_energy / (10 ** 6)
-        pynvml.nvmlShutdown()
-        return latency, energy
-    
-        count = 0.0
-        start_time = time.perf_counter()
-        pynvml.nvmlInit()
-        handle = pynvml.nvmlDeviceGetHandleByIndex(self.device.index)
-        
-        end_time = time.perf_counter()
-        time_elapsed = end_time - start_time
-        power = pynvml.nvmlDeviceGetPowerUsage(handle)
-        energy = ( power * time_elapsed ) / (1e6)
-        content = {
-            "count" : self.count,
-            "time" : self.time_elapsed,
-            "energy" : energy
-        }
-    
-    device = torch.device("cuda:7" if torch.cuda.is_available() else "cpu")
-    
-    latency, energy = measure_gpu(device) # watts
-    print(latency, energy)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    tmp_queue = mp.Queue()
+    instance = imgStream(tmp_queue, device=device)
+    instance.set_config(src_folder_path="../../savedyolo/clean", fps=30, profile_save_path="../../profileyolo", eval_size=10)
+    instance.enable_profile(False)
+    instance.run()
+    instance.shutdown()
+
+
+
+

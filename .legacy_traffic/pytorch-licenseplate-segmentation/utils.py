@@ -21,7 +21,7 @@ class SmoothedValue(object):
             fmt = "{median:.4f} ({global_avg:.4f})"
         self.deque = deque(maxlen=window_size)
         self.total = 0.0
-        self.count = 0
+        self.count = 0.0
         self.fmt = fmt
 
     def update(self, value, n=1):

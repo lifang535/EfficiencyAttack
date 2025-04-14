@@ -36,7 +36,7 @@ if args.target_idx:
 else:
     target_indices = "none"
     
-base_dir = "../saved"
+base_dir = "../savedyolo"
 model_id = args.model_id
 algorithm = args.algorithm
 eval_size = args.eval_size
@@ -44,7 +44,7 @@ profiling = args.profiling
 watch_interval = args.watch
 
 if algorithm == "clean":
-    input_dir = "../saved/clean"
+    input_dir = "../savedyolo/clean"
     ps_path = os.path.join(args.ps_path, "clean")
     
 elif algorithm is None:

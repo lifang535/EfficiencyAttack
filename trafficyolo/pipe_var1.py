@@ -1,8 +1,8 @@
 from cmpnt.c1_img import imgStream
-from cmpnt.c2_det import odStream, var_odStream, var2_odStream
+from cmpnt.c2_det import odStream, var_odStream
 from cmpnt.c3_fr import frStream
 from cmpnt.c4_lpr import lprStream
-from cmpnt.c5_cap import capStream
+# Removed: from cmpnt.c5_cap import capStream
 from cmpnt.c6_kr import krStream
 from cmpnt.c7_udp import udpStream
 from cleanup import cleanup_resources
@@ -25,7 +25,7 @@ parser.add_argument('--algorithm', type=str, default=None, choices=["overload",
                                                                     "teaspoon", 
                                                                     "clean"], help="algorithm not found")
 parser.add_argument('--target_idx', type=int, nargs='+', default=None, help="List of numbers, unavailable for baseline")
-parser.add_argument("--ps_path", type=str, default="./profile_var_2", help="Path to save profile data")
+parser.add_argument("--ps_path", type=str, default="./profile_var", help="Path to save profile data")
 parser.add_argument("--eval_size", type=int, default=100, help="num of images to evaluate")
 parser.add_argument("--profiling", action="store_true", help="use internal pytorch profiler")
 parser.add_argument("--watch", type=float, default=1.0, help="use internal pytorch profiler")
@@ -36,7 +36,7 @@ if args.target_idx:
 else:
     target_indices = "none"
     
-base_dir = "../saved"
+base_dir = "../savedyolo"
 model_id = args.model_id
 algorithm = args.algorithm
 eval_size = args.eval_size
@@ -44,9 +44,9 @@ profiling = args.profiling
 watch_interval = args.watch
 
 if algorithm == "clean":
-    input_dir = "../saved/clean"
+    input_dir = "../savedyolo/clean"
     ps_path = os.path.join(args.ps_path, "clean")
-    
+
 elif algorithm is None:
     input_dir = "./test_src"
     ps_path = "./test_profile_var"
@@ -69,7 +69,7 @@ logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     date_time = time.strftime("%Y-%m-%d %H:%M:%S")
     
-    title = "Running: Traffic Monitoring Pipeline VAR 2"
+    title = "Running: Traffic Monitoring Pipeline VAR 1"
     subtitle = f"Algorithm: {algorithm}, Model ID: {model_id}"
     subsubtitle = f"Target Indices: {target_indices}"
     
@@ -100,49 +100,46 @@ if __name__ == "__main__":
     img2od_queue = Queue(maxsize=ms)
     od2fr_queue = Queue(maxsize=ms)
     od2lpr_queue = Queue(maxsize=ms)
-    od2cap_queue = Queue(maxsize=ms)
+    # Removed: od2cap_queue = Queue(maxsize=ms)
     fr2kr_queue = Queue(maxsize=ms)
     lpr2kr_queue = Queue(maxsize=ms)
     cap2udp_queue = Queue(maxsize=ms)
     kr2udp_queue = Queue(maxsize=ms)
     
-    od2fr_queue.put(None)
-    od2lpr_queue.put(None)
-    lpr2kr_queue.put(None)
-    fr2kr_queue.put(None)
-    kr2udp_queue.put(None)  
+    cap2udp_queue.put(None)  
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    
     # img_stream = imgStream(img2od_queue, "cuda:0")
-    # od_stream = var2_odStream(img2od_queue, od2cap_queue, "cuda:1")  # Changed: None instead of od2cap_queue
-    # # fr_stream = frStream(od2fr_queue, fr2kr_queue, "cuda:2")
-    # # lpr_stream = lprStream(od2lpr_queue, lpr2kr_queue, "cuda:3")
-    # cap_stream = capStream(od2cap_queue, cap2udp_queue, "cuda:4")
-    # # kr_stream = krStream(fr2kr_queue, lpr2kr_queue, kr2udp_queue, "cuda:5")
+    # od_stream = var_odStream(img2od_queue, od2fr_queue, od2lpr_queue, "cuda:1")  # Changed: None instead of od2cap_queue
+    # fr_stream = frStream(od2fr_queue, fr2kr_queue, "cuda:2")
+    # lpr_stream = lprStream(od2lpr_queue, lpr2kr_queue, "cuda:3")
+    # # Removed: cap_stream = capStream(od2cap_queue, cap2udp_queue, device)
+    # kr_stream = krStream(fr2kr_queue, lpr2kr_queue, kr2udp_queue, "cuda:5")
     # udp_Stream = udpStream(cap2udp_queue, kr2udp_queue, "cuda:6")  # Changed: None instead of cap2udp_queue
     
     img_stream = imgStream(img2od_queue, device)
-    od_stream = var2_odStream(img2od_queue, od2cap_queue, device)  # Changed: None instead of od2cap_queue
-    # fr_stream = frStream(od2fr_queue, fr2kr_queue, "cuda:2")
-    # lpr_stream = lprStream(od2lpr_queue, lpr2kr_queue, "cuda:3")
-    cap_stream = capStream(od2cap_queue, cap2udp_queue, device)
-    # kr_stream = krStream(fr2kr_queue, lpr2kr_queue, kr2udp_queue, "cuda:5")
+    od_stream = var_odStream(img2od_queue, od2fr_queue, od2lpr_queue, device)  # Changed: None instead of od2cap_queue
+    fr_stream = frStream(od2fr_queue, fr2kr_queue, device)
+    lpr_stream = lprStream(od2lpr_queue, lpr2kr_queue, device)
+    # Removed: cap_stream = capStream(od2cap_queue, cap2udp_queue, device)
+    kr_stream = krStream(fr2kr_queue, lpr2kr_queue, kr2udp_queue, device)
     udp_Stream = udpStream(cap2udp_queue, kr2udp_queue, device)  # Changed: None instead of cap2udp_queue
+    
     
     img_stream.set_config(src_folder_path = input_dir, fps = 30, profile_save_path=ps_path, eval_size=eval_size)
     od_stream.set_config(model_id=model_id, profile_save_path=ps_path)
-    # fr_stream.set_config(profile_save_path=ps_path)
-    # lpr_stream.set_config(profile_save_path=ps_path)
-    cap_stream.set_config(profile_save_path=ps_path)
-    # kr_stream.set_config(embedding_path="./face_embeddings", profile_save_path=ps_path)
+    fr_stream.set_config(profile_save_path=ps_path)
+    lpr_stream.set_config(profile_save_path=ps_path)
+    # Removed: cap_stream.set_config(profile_save_path=ps_path)
+    kr_stream.set_config(embedding_path="./face_embeddings", profile_save_path=ps_path)
     udp_Stream.set_config(profile_save_path=ps_path)
 
     
-    processes = [img_stream, od_stream, cap_stream, udp_Stream]  # Removed cap_stream
-    queues = [img2od_queue, od2cap_queue, cap2udp_queue]  # Removed od2cap_queue and cap2udp_queue
-    queue_names = ["img2od", "od2cap_queue","cap2udp", "cap2udp"]  # Removed "od2cap" and "cap2udp"
-
+    processes = [img_stream, od_stream, fr_stream, lpr_stream, kr_stream, udp_Stream]  # Removed cap_stream
+    queues = [img2od_queue, od2fr_queue, od2lpr_queue, fr2kr_queue, lpr2kr_queue, cap2udp_queue, kr2udp_queue]  # Removed od2cap_queue and cap2udp_queue
+    queue_names = ["img2od", "od2fr", "od2lpr", "fr2kr", "lpr2kr", "cap2udp", "kr2udp"]  # Removed "od2cap" and "cap2udp"
+    
     for sub_p in processes:
         sub_p.enable_profile(profiling)
         

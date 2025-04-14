@@ -19,8 +19,11 @@ import gc
 
 import pynvml
 import json
-
-
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'yolov5'))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+from models.common import DetectMultiBackend
+from utils.general import Profile, non_max_suppression
 
 logging.basicConfig(
     level=logging.INFO,
@@ -119,10 +122,11 @@ class odStream(Process):
             self.device_id = 0 if self.device.index is None else self.device.index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
             
-            self.model, self.processor = load_from_pretrained(ckpt=self.model_id, 
-                                                            num_q=1000, 
-                                                            device=self.device)
-            self.model.eval()
+            weights = "./yolov5n.pt"
+            self.model = DetectMultiBackend(weights=weights, device=self.device)
+            conf_thres = 0.25 # confidence threshold
+            iou_thres = 0.45  # NMS IOU threshold
+            max_det = 1000  # maximum detections per image            self.model.eval()
             logger.info(f"{self.__class__.__name__:<12} : OD model loaded, model_id = {self.model_id}")
             logger.info(f"{self.__class__.__name__:<12} : started")
             while not self.stop_event.is_set():
@@ -144,14 +148,16 @@ class odStream(Process):
                     
                 with torch.no_grad():
                     preds = self.model(data_tensor) 
-                    output = self.processor.post_process_object_detection(
-                        preds,
-                        threshold=0.25,
-                        target_sizes=[data_tensor.shape[2:]]
-                    )[0]
+                    outputs = non_max_suppression(preds, conf_thres, iou_thres, max_det=max_det)[0]
                     self.count += 1
                 
-                _, labels, boxes = output["scores"], output["labels"], output["boxes"]
+                if outputs is not None and len(outputs) > 0:
+                    boxes = torch.stack([row[:4] for row in outputs])              # [N, 4]
+                    labels = torch.tensor([int(row[5].item()) for row in outputs], dtype=torch.int)  # [N]
+                else:
+                    boxes = torch.empty((0, 4), device=self.device)  # Keep device consistent
+                    labels = torch.empty((0,), dtype=torch.int, device=self.device)
+                # import pdb; pdb.set_trace()
 
                 face_indices = (labels == 0).nonzero(as_tuple=True)[0]
                 plate_indices = (labels == 2).nonzero(as_tuple=True)[0]
@@ -165,6 +171,8 @@ class odStream(Process):
                             self.od2fr_queue.put(cropped_np)
                             del cropped_np
                 
+                # pdb.set_trace()
+                
                 if len(plate_indices) > 0:
                     for idx in plate_indices:
                         if self.valid_bbox(boxes[idx]):
@@ -173,7 +181,9 @@ class odStream(Process):
                                 time.sleep(0.01)
                             self.od2lpr_queue.put(cropped_np)
                             del cropped_np
-                                
+                
+                # pdb.set_trace()
+                
                 if len(face_indices) > 0 or len(plate_indices) > 0:
                     all_indices = torch.cat([face_indices, plate_indices]) if len(face_indices) > 0 and len(plate_indices) > 0 else face_indices if len(face_indices) > 0 else plate_indices
                     merged_box = self.merge_bbox(all_indices, boxes)
@@ -187,7 +197,7 @@ class odStream(Process):
                         
                 torch.cuda.empty_cache()
                 gc.collect()
-                del data_tensor, preds, output, labels, boxes, face_indices, plate_indices
+                del data_tensor, preds, labels, boxes, face_indices, plate_indices
             
         except Exception as e:
             logger.error(f"{self.__class__.__name__:<12} : {str(e)}")
@@ -348,10 +358,11 @@ class var_odStream(Process):
             self.device_id = 0 if self.device.index is None else self.device.index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
             
-            self.model, self.processor = load_from_pretrained(ckpt=self.model_id, 
-                                                            num_q=1000, 
-                                                            device=self.device)
-            self.model.eval()
+            weights = "./yolov5n.pt"
+            self.model = DetectMultiBackend(weights=weights, device=self.device)
+            conf_thres = 0.25 # confidence threshold
+            iou_thres = 0.45  # NMS IOU threshold
+            max_det = 1000  # maximum detections per image            self.model.eval()
             logger.info(f"{self.__class__.__name__:<12} : OD model loaded, model_id = {self.model_id}")
             logger.info(f"{self.__class__.__name__:<12} : started")
             while not self.stop_event.is_set():
@@ -373,15 +384,16 @@ class var_odStream(Process):
                     
                 with torch.no_grad():
                     preds = self.model(data_tensor) 
-                    output = self.processor.post_process_object_detection(
-                        preds,
-                        threshold=0.25,
-                        target_sizes=[data_tensor.shape[2:]]
-                    )[0]
+                    outputs = non_max_suppression(preds, conf_thres, iou_thres, max_det=max_det)[0]
                     self.count += 1
                 
-                _, labels, boxes = output["scores"], output["labels"], output["boxes"]
-
+                if outputs is not None and len(outputs) > 0:
+                    boxes = torch.stack([row[:4] for row in outputs])              # [N, 4]
+                    labels = torch.tensor([int(row[5].item()) for row in outputs], dtype=torch.int)  # [N]
+                else:
+                    boxes = torch.empty((0, 4), device=self.device)  # Keep device consistent
+                    labels = torch.empty((0,), dtype=torch.int, device=self.device)
+                
                 face_indices = (labels == 0).nonzero(as_tuple=True)[0]
                 plate_indices = (labels == 2).nonzero(as_tuple=True)[0]
                 
@@ -561,10 +573,11 @@ class var2_odStream(Process):
             self.device_id = 0 if self.device.index is None else self.device.index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
             
-            self.model, self.processor = load_from_pretrained(ckpt=self.model_id, 
-                                                            num_q=1000, 
-                                                            device=self.device)
-            self.model.eval()
+            weights = "./yolov5n.pt"
+            self.model = DetectMultiBackend(weights=weights, device=self.device)
+            conf_thres = 0.25 # confidence threshold
+            iou_thres = 0.45  # NMS IOU threshold
+            max_det = 1000  # maximum detections per image            self.model.eval()
             logger.info(f"{self.__class__.__name__:<12} : OD model loaded, model_id = {self.model_id}")
             logger.info(f"{self.__class__.__name__:<12} : started")
             while not self.stop_event.is_set():
@@ -576,7 +589,6 @@ class var2_odStream(Process):
                         # self.img2od_queue.join_thread()
                         break
                 except Empty:
-                    time.sleep(0.01)
                     continue
                 
                 # data_tensor = torch.from_numpy(data).to(self.device)
@@ -587,15 +599,16 @@ class var2_odStream(Process):
                     
                 with torch.no_grad():
                     preds = self.model(data_tensor) 
-                    output = self.processor.post_process_object_detection(
-                        preds,
-                        threshold=0.25,
-                        target_sizes=[data_tensor.shape[2:]]
-                    )[0]
+                    outputs = non_max_suppression(preds, conf_thres, iou_thres, max_det=max_det)[0]
                     self.count += 1
                 
-                _, labels, boxes = output["scores"], output["labels"], output["boxes"]
-
+                if outputs is not None and len(outputs) > 0:
+                    boxes = torch.stack([row[:4] for row in outputs])              # [N, 4]
+                    labels = torch.tensor([int(row[5].item()) for row in outputs], dtype=torch.int)  # [N]
+                else:
+                    boxes = torch.empty((0, 4), device=self.device)  # Keep device consistent
+                    labels = torch.empty((0,), dtype=torch.int, device=self.device)
+                
                 face_indices = (labels == 0).nonzero(as_tuple=True)[0]
                 plate_indices = (labels == 2).nonzero(as_tuple=True)[0]
                                 
@@ -612,7 +625,7 @@ class var2_odStream(Process):
                         
                 torch.cuda.empty_cache()
                 gc.collect()
-                del data_tensor, preds, output, labels, boxes, face_indices, plate_indices
+                del data_tensor, preds, labels, boxes, face_indices, plate_indices
             
         except Exception as e:
             logger.error(f"{self.__class__.__name__:<12} : {str(e)}")
@@ -686,4 +699,29 @@ class var2_odStream(Process):
             return False
 
 if __name__ == "__main__":
+    from pathlib import Path
+    from torchvision.io import read_image
+    
+    tmp_queue_1 = mp.Queue(maxsize=1000)
+    tmp_queue_2 = mp.Queue(maxsize=1000)
+    tmp_queue_3 = mp.Queue(maxsize=1000)
+    tmp_queue_4 = mp.Queue(maxsize=1000)
+    
+    tmp_p = "../../savedyolo/clean/000001.png"  # path to your PNG
+    tmp_p = "../../savedyolo/model_0/teaspoon_tgt_0/000001.png"  # path to your PNG
+    png_path = Path(tmp_p)
+    img = read_image(str(png_path))                
+    img_f32 = img.float() / 255   
+    
+    img_ndarray = img_f32.unsqueeze(0).numpy()
+    tmp_queue_1.put(img_ndarray)
+    tmp_queue_1.put(None)
+    
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    instance = odStream(tmp_queue_1, tmp_queue_2, tmp_queue_3, tmp_queue_4, device)
+    instance.set_config(model_id=0, profile_save_path="../../profileyolo")
+    instance.enable_profile(False)
+    instance.run()
+    instance.shutdown()
+
     pass
