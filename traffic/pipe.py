@@ -23,12 +23,22 @@ parser.add_argument('--algorithm', type=str, default=None, choices=["overload",
                                                                     "slowtrack", 
                                                                     "phantom", 
                                                                     "teaspoon", 
-                                                                    "clean"], help="algorithm not found")
+                                                                    "clean",
+                                                                    "tea_400",
+                                                                    "tea_100",
+                                                                    "norm",
+                                                                    "area",
+                                                                    "norm_and_area",
+                                                                    "eps_2",
+                                                                    "eps_8",
+                                                                    "weighted",
+                                                                    "unweighted"], help="algorithm not found")
 parser.add_argument('--target_idx', type=int, nargs='+', default=None, help="List of numbers, unavailable for baseline")
 parser.add_argument("--ps_path", type=str, default="./profile", help="Path to save profile data")
 parser.add_argument("--eval_size", type=int, default=100, help="num of images to evaluate")
 parser.add_argument("--profiling", action="store_true", help="use internal pytorch profiler")
 parser.add_argument("--watch", type=float, default=1.0, help="use internal pytorch profiler")
+parser.add_argument("--defense", action="store_true", help="apply defense mechanism")  
 args = parser.parse_args()
 
 if args.target_idx:
@@ -43,9 +53,18 @@ eval_size = args.eval_size
 profiling = args.profiling
 watch_interval = args.watch
 
+if algorithm in ["tea_400","tea_100","norm","area","norm_and_area","eps_2","eps_8"]:
+    base_dir = "../ablation/saved"
+
 if algorithm == "clean":
     input_dir = "../saved/clean"
     ps_path = os.path.join(args.ps_path, "clean")
+elif algorithm == "weighted":
+    input_dir = "../case_study/adv_weighted"
+    ps_path = os.path.join(args.ps_path, "weighted")
+elif algorithm == "unweighted":
+    input_dir = "../case_study/adv_unweighted"
+    ps_path = os.path.join(args.ps_path, "unweighted")
 elif algorithm is None:
     input_dir = "./test_src"
     ps_path = "./test_profile"
@@ -123,9 +142,9 @@ if __name__ == "__main__":
     kr_stream = krStream(fr2kr_queue, lpr2kr_queue, kr2udp_queue, device)
     udp_Stream = udpStream(cap2udp_queue, kr2udp_queue, device)
     
-    img_stream.set_config(src_folder_path = input_dir, fps = 30, profile_save_path=ps_path, eval_size=eval_size)
-    # od_stream.set_config(model_id=model_id, profile_save_path=ps_path)
-    od_stream.set_config(model_id=0, profile_save_path=ps_path)
+    img_stream.set_config(src_folder_path = input_dir, fps = 30, profile_save_path=ps_path, eval_size=eval_size, if_defense=args.defense)
+    od_stream.set_config(model_id=model_id, profile_save_path=ps_path)
+    # od_stream.set_config(model_id=0, profile_save_path=ps_path)
     fr_stream.set_config(profile_save_path=ps_path)
     lpr_stream.set_config(profile_save_path=ps_path)
     cap_stream.set_config(profile_save_path=ps_path)

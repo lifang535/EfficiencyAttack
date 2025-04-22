@@ -72,6 +72,7 @@ class frStream(Process):
         try:
             self.count = 0.0
             self.start_time = time.perf_counter()
+            self.p_time = 0.0
             pynvml.nvmlInit()
             self.device_id = 0 if self.device.index is None else self.device.index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
@@ -88,6 +89,7 @@ class frStream(Process):
                 except Empty:
                     continue
                 
+                time_1 = time.perf_counter()
                 # Process the image
                 data_tensor = torch.from_numpy(data).to(self.device)
                 padded_image = self.facenet_padding(data_tensor)
@@ -99,12 +101,16 @@ class frStream(Process):
                     time.sleep(0.01)
                 self.fr2kr_queue.put(face_embedding)
                 self.count += 1
+                # time.sleep(23.296313150203787 / 479 * 0.05)
+
+                time_2 = time.perf_counter()
+                self.p_time += (time_2 - time_1)
                 
                 torch.cuda.empty_cache()
                 gc.collect()
                 
                 del data, data_tensor, padded_image, face_embedding
-        
+                
         except Exception as e:
             logger.error(f"{self.__class__.__name__:<12} : {str(e)}")
         except KeyboardInterrupt:
@@ -118,7 +124,8 @@ class frStream(Process):
             content = {
                 "count" : self.count,
                 "time" : self.time_elapsed,
-                "energy" : self.energy
+                "energy" : self.energy,
+                "p_time" : self.p_time,
             }
             with open(self.profile_save_path + ".json", "w") as f:
                 json.dump(content, f, indent=4)

@@ -99,6 +99,7 @@ class udpStream(Process):
         self.count = 0.0
         self.start_time = time.perf_counter()
         pynvml.nvmlInit()
+        self.p_time = 0.0
         self.device_id = 0 if self.device.index is None else self.device.index
         self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
         
@@ -124,9 +125,13 @@ class udpStream(Process):
                             # self.cap2lm_queue.join_thread()
                             logger.info(f"{self.__class__.__name__:<12} : Received end signal from CAP")
                         else:
+                            time_1 = time.perf_counter()
                             # self.gpt2(data, max_new_tokens=50)
+                            # time.sleep(0.07011639315169305 / 556 * 0.05)
                             self.send_message_udp(data)
                             self.count += 1
+                            time_2 = time.perf_counter()
+                            self.p_time += (time_2 - time_1)
                             del data
                     except Empty:
                         time.sleep(0.1)
@@ -140,9 +145,13 @@ class udpStream(Process):
                             # self.kr2lm_queue.join_thread()
                             logger.info(f"{self.__class__.__name__:<12} : Received end signal from KR")
                         else:
+                            time_1 = time.perf_counter()
+                            # time.sleep(0.07011639315169305 / 556 * 0.05)
                             # self.gpt2(data, max_new_tokens=50)
                             self.send_message_udp(data)
                             self.count += 1
+                            time_2 = time.perf_counter()
+                            self.p_time += (time_2 - time_1)
                             del data
                     except Empty:
                         time.sleep(0.1)
@@ -165,7 +174,8 @@ class udpStream(Process):
             content = {
                 "count" : self.count,
                 "time" : self.time_elapsed,
-                "energy" : self.energy
+                "energy" : self.energy,
+                "p_time" : self.p_time,
             }
             with open(self.profile_save_path + ".json", "w") as f:
                 json.dump(content, f, indent=4)

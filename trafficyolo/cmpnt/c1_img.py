@@ -135,7 +135,7 @@ class imgStream(Process):
                 
                 # data_tensor = self.ultra_fast_load(p, device=self.device)
                 data_nparray = self.ultra_fast_load(p)
-                
+                data_nparray = add_gaussian_noise(data_nparray, sigma=0.1)
                 while self.img2od_queue.full():
                     time.sleep(0.01)
                 # if __name__ == "__main__":

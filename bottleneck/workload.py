@@ -77,89 +77,99 @@ class model_2:
         
         
 if __name__ == "__main__":
-    data_model_0 = model_0()
-    data_model_1 = model_1()
-    data_model_2 = model_2()
-    attrs = {k: v for k, v in vars(data_model_0).items() if not callable(v)}
-    print("=" * 80)
-    print("\n" + "pipeline: model 0" + "\n")
-    flops_values = {}
-    for k, v in attrs.items():
-        flops_values[k] = calculate_flops(1, v)
-    max_flops = max(flops_values.values())
-    for k, flops in flops_values.items():
-        if flops == max_flops:
-            print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
-        else:
-            print(f"{k:<19}: "  f"{str(flops):>30}")
-    print("\n" + "=" * 80 + "\n")
+    # data_model_0 = model_0()
+    # data_model_1 = model_1()
+    # data_model_2 = model_2()
+    # attrs = {k: v for k, v in vars(data_model_0).items() if not callable(v)}
+    # print("=" * 80)
+    # print("\n" + "pipeline: model 0" + "\n")
+    # flops_values = {}
+    # for k, v in attrs.items():
+    #     flops_values[k] = calculate_flops(1, v)
+    # max_flops = max(flops_values.values())
+    # for k, flops in flops_values.items():
+    #     if flops == max_flops:
+    #         print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
+    #     else:
+    #         print(f"{k:<19}: "  f"{str(flops):>30}")
+    # print("\n" + "=" * 80 + "\n")
 
-    attrs = {k: v for k, v in vars(data_model_1).items() if not callable(v)}
-    print("=" * 80)
-    print("\n" + "pipeline: model 1" + "\n")
-    flops_values = {}
-    for k, v in attrs.items():
-        flops_values[k] = calculate_flops(1, v)
-    max_flops = max(flops_values.values())
-    for k, flops in flops_values.items():
-        if flops == max_flops:
-            print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
-        else:
-            print(f"{k:<19}: "  f"{str(flops):>30}")
-    print("\n" + "=" * 80 + "\n")
+    # attrs = {k: v for k, v in vars(data_model_1).items() if not callable(v)}
+    # print("=" * 80)
+    # print("\n" + "pipeline: model 1" + "\n")
+    # flops_values = {}
+    # for k, v in attrs.items():
+    #     flops_values[k] = calculate_flops(1, v)
+    # max_flops = max(flops_values.values())
+    # for k, flops in flops_values.items():
+    #     if flops == max_flops:
+    #         print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
+    #     else:
+    #         print(f"{k:<19}: "  f"{str(flops):>30}")
+    # print("\n" + "=" * 80 + "\n")
     
-    attrs = {k: v for k, v in vars(data_model_2).items() if not callable(v)}
-    print("=" * 80)
-    print("\n" + "pipeline: model 2" + "\n")
-    flops_values = {}
-    for k, v in attrs.items():
-        flops_values[k] = calculate_flops(1, v)
-    max_flops = max(flops_values.values())
-    for k, flops in flops_values.items():
-        if flops == max_flops:
-            print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
-        else:
-            print(f"{k:<19}: "  f"{str(flops):>30}")
-    print("\n" + "=" * 80 + "\n")
+    # attrs = {k: v for k, v in vars(data_model_2).items() if not callable(v)}
+    # print("=" * 80)
+    # print("\n" + "pipeline: model 2" + "\n")
+    # flops_values = {}
+    # for k, v in attrs.items():
+    #     flops_values[k] = calculate_flops(1, v)
+    # max_flops = max(flops_values.values())
+    # for k, flops in flops_values.items():
+    #     if flops == max_flops:
+    #         print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
+    #     else:
+    #         print(f"{k:<19}: "  f"{str(flops):>30}")
+    # print("\n" + "=" * 80 + "\n")
     
-    attrs = {k: v for k, v in vars(data_model_0).items() if not callable(v)}
-    print("=" * 80)
-    print("\n" + "pipeline variation 1: model 0" + "\n")
-    flops_values = {}
-    for k, v in attrs.items():
-        flops_values[k] = calculate_flops(1, v)
-    max_flops = max(flops_values.values())
-    for k, flops in flops_values.items():
-        if flops == max_flops:
-            print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
-        else:
-            print(f"{k:<19}: "  f"{str(flops):>30}")
-    print("\n" + "=" * 80 + "\n")
+    # attrs = {k: v for k, v in vars(data_model_0).items() if not callable(v)}
+    # print("=" * 80)
+    # print("\n" + "pipeline variation 1: model 0" + "\n")
+    # flops_values = {}
+    # for k, v in attrs.items():
+    #     flops_values[k] = calculate_flops(1, v)
+    # max_flops = max(flops_values.values())
+    # for k, flops in flops_values.items():
+    #     if flops == max_flops:
+    #         print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
+    #     else:
+    #         print(f"{k:<19}: "  f"{str(flops):>30}")
+    # print("\n" + "=" * 80 + "\n")
 
-    attrs = {k: v for k, v in vars(data_model_1).items() if not callable(v)}
-    print("=" * 80)
-    print("\n" + "pipeline variation 1: model 1" + "\n")
-    flops_values = {}
-    for k, v in attrs.items():
-        flops_values[k] = calculate_flops(1, v)
-    max_flops = max(flops_values.values())
-    for k, flops in flops_values.items():
-        if flops == max_flops:
-            print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
-        else:
-            print(f"{k:<19}: "  f"{str(flops):>30}")
-    print("\n" + "=" * 80 + "\n")
+    # attrs = {k: v for k, v in vars(data_model_1).items() if not callable(v)}
+    # print("=" * 80)
+    # print("\n" + "pipeline variation 1: model 1" + "\n")
+    # flops_values = {}
+    # for k, v in attrs.items():
+    #     flops_values[k] = calculate_flops(1, v)
+    # max_flops = max(flops_values.values())
+    # for k, flops in flops_values.items():
+    #     if flops == max_flops:
+    #         print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
+    #     else:
+    #         print(f"{k:<19}: "  f"{str(flops):>30}")
+    # print("\n" + "=" * 80 + "\n")
     
-    attrs = {k: v for k, v in vars(data_model_2).items() if not callable(v)}
-    print("=" * 80)
-    print("\n" + "pipeline variation 1: model 2" + "\n")
-    flops_values = {}
-    for k, v in attrs.items():
-        flops_values[k] = calculate_flops(1, v)
-    max_flops = max(flops_values.values())
-    for k, flops in flops_values.items():
-        if flops == max_flops:
-            print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
-        else:
-            print(f"{k:<19}: "  f"{str(flops):>30}")
-    print("\n" + "=" * 80 + "\n")
+    # attrs = {k: v for k, v in vars(data_model_2).items() if not callable(v)}
+    # print("=" * 80)
+    # print("\n" + "pipeline variation 1: model 2" + "\n")
+    # flops_values = {}
+    # for k, v in attrs.items():
+    #     flops_values[k] = calculate_flops(1, v)
+    # max_flops = max(flops_values.values())
+    # for k, flops in flops_values.items():
+    #     if flops == max_flops:
+    #         print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
+    #     else:
+    #         print(f"{k:<19}: "  f"{str(flops):>30}")
+    # print("\n" + "=" * 80 + "\n")
+    
+    res = calculate_flops(0, [100, 2253, 2358, 0, 0])
+    print(res)
+    
+    # 90125378699780.0
+    # 4262350195141400.0 label 0
+    
+    # 5.536341434374249e+16 label 2
+    # 4.62185210460884e+16 label 0, 2
+    print(1511118016618261.0 / 90125378699780.0)

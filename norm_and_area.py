@@ -60,7 +60,7 @@ class TeaSpoon(BaseAttack):
         l_2_loss = torch.norm(self.bx, p=2) / 50.0
         norm_loss = l_1_loss + l_2_loss 
         
-        area_loss = 100 * torch.sum(sel_aaa)
+        area_loss = torch.sum(sel_aaa) / (len(self.logits) + 1)
         
         cls_loss_target_tensor = self.cls_loss_target()
         cls_loss = 1.0 * F.mse_loss(self.prob, cls_loss_target_tensor, reduction='sum') / (len(self.logits) + 1)

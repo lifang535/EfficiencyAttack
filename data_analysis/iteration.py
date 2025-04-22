@@ -132,8 +132,8 @@ def plot_count_vs_iteration(all_results, output_dir="ablation_plots"):
                          label=f"{setting_label} ({folder_result['files_processed']} files)")
         
         plt.xlabel('Iteration Number', fontsize=14)
-        plt.ylabel('Person Count', fontsize=14)
-        plt.title(f'{model}: Person Count vs Iteration Number', fontsize=16)
+        plt.ylabel('Number of Workload', fontsize=14)
+        plt.title(f'{model}: Number of Workload vs Iteration Number', fontsize=16)
         plt.legend(loc='best', fontsize=12)
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.tight_layout()

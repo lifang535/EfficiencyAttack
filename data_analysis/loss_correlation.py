@@ -112,8 +112,8 @@ def plot_correlation(folder_results, output_dir="correlation_plots"):
     if folder_results['total_losses'] and folder_results['person_counts']:
         plt.figure(figsize=(10, 6))
         plt.scatter(folder_results['person_counts'], folder_results['total_losses'], alpha=0.5)
-        plt.title(f'Total Loss vs Person Count - {folder_name}')
-        plt.xlabel('Person Count')
+        plt.title(f'Total Loss vs Number of Workload - {folder_name}')
+        plt.xlabel('Number of Workload')
         plt.ylabel('Total Loss')
         plt.grid(True, linestyle='--', alpha=0.7)
         
@@ -128,8 +128,8 @@ def plot_correlation(folder_results, output_dir="correlation_plots"):
     if folder_results['cls_losses'] and folder_results['person_counts']:
         plt.figure(figsize=(10, 6))
         plt.scatter(folder_results['person_counts'], folder_results['cls_losses'], alpha=0.5)
-        plt.title(f'Classification Loss vs Person Count - {folder_name}')
-        plt.xlabel('Person Count')
+        plt.title(f'Classification Loss vs Number of Workload - {folder_name}')
+        plt.xlabel('Number of Workload')
         plt.ylabel('Classification Loss')
         plt.grid(True, linestyle='--', alpha=0.7)
         
@@ -144,8 +144,8 @@ def plot_correlation(folder_results, output_dir="correlation_plots"):
     if folder_results['area_losses'] and folder_results['person_counts']:
         plt.figure(figsize=(10, 6))
         plt.scatter(folder_results['person_counts'], folder_results['area_losses'], alpha=0.5)
-        plt.title(f'Area Loss vs Person Count - {folder_name}')
-        plt.xlabel('Person Count')
+        plt.title(f'Area Loss vs Number of Workload - {folder_name}')
+        plt.xlabel('Number of Workload')
         plt.ylabel('Area Loss')
         plt.grid(True, linestyle='--', alpha=0.7)
         
@@ -160,8 +160,8 @@ def plot_correlation(folder_results, output_dir="correlation_plots"):
     if folder_results['norm_losses'] and folder_results['person_counts']:
         plt.figure(figsize=(10, 6))
         plt.scatter(folder_results['person_counts'], folder_results['norm_losses'], alpha=0.5)
-        plt.title(f'Norm Loss vs Person Count - {folder_name}')
-        plt.xlabel('Person Count')
+        plt.title(f'Norm Loss vs Number of Workload - {folder_name}')
+        plt.xlabel('Number of Workload')
         plt.ylabel('Norm Loss')
         plt.grid(True, linestyle='--', alpha=0.7)
         

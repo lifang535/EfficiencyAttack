@@ -121,7 +121,7 @@ class odStream(Process):
             pynvml.nvmlInit()
             self.device_id = 0 if self.device.index is None else self.device.index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
-            
+            self.p_time = 0.0
             weights = "./yolov5n.pt"
             self.model = DetectMultiBackend(weights=weights, device=self.device)
             conf_thres = 0.25 # confidence threshold
@@ -139,12 +139,14 @@ class odStream(Process):
                         break
                 except Empty:
                     continue
-                
+                time_1 = time.perf_counter()
                 # data_tensor = torch.from_numpy(data).to(self.device)
                 if isinstance(data, np.ndarray):
-                    data_tensor = torch.from_numpy(data).to(self.device)
+                    # Convert numpy array to tensor and ensure it's float32
+                    data_tensor = torch.from_numpy(data).float().to(self.device)
                 elif isinstance(data, torch.Tensor):
-                    data_tensor = data.to(self.device)
+                    # Convert existing tensor to float32 if needed
+                    data_tensor = data.float().to(self.device)
                     
                 with torch.no_grad():
                     preds = self.model(data_tensor) 
@@ -195,6 +197,9 @@ class odStream(Process):
                         del cropped_np
                     del  all_indices, merged_box
                         
+                time_2 = time.perf_counter()
+                self.p_time += (time_2 - time_1)
+                
                 torch.cuda.empty_cache()
                 gc.collect()
                 del data_tensor, preds, labels, boxes, face_indices, plate_indices
@@ -212,7 +217,8 @@ class odStream(Process):
             content = {
                 "count" : self.count,
                 "time" : self.time_elapsed,
-                "energy" : self.energy
+                "energy" : self.energy,
+                "p_time" : self.p_time,
             }
             with open(self.profile_save_path + ".json", "w") as f:
                 json.dump(content, f, indent=4)

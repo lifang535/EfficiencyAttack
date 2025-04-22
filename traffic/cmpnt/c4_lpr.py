@@ -110,6 +110,7 @@ class lprStream(Process):
 
             self.count = 0.0
             self.start_time = time.perf_counter()
+            self.p_time = 0.0
             pynvml.nvmlInit()
             self.device_id = 0 if self.device.index is None else self.device.index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
@@ -128,29 +129,32 @@ class lprStream(Process):
                     if data is None:
                         # self.od2lpr_queue.join_thread()
                         break
-                    
-                    
-                    data_tensor = torch.from_numpy(data).to(self.device)
-                    
-                    # Run the segmentation model
-                    with torch.no_grad():
-                        # print(f"+ "*20 + f"1 {type(data_tensor)}")
-                        pred = self.segmentation(data_tensor, self.deeplabv3)
-                        # print(f"+ "*20 + f"2 {type(pred)}")
-                        plate_tensor = self.post_process(pred, data_tensor.detach().clone())
-                        # print(f"+ "*20 + f"3 {type(plate_tensor)}")
-                        plate_text = self.ocr(plate_tensor)[0]
-                        
-                        
-                    # Send the result to the next queue
-                    while self.lpr2kr_queue.full():
-                        time.sleep(0.01)
-                    self.lpr2kr_queue.put(plate_text)
-                    self.count += 1
-                    torch.cuda.empty_cache()
-                
                 except Empty:
                     continue
+                    
+                time_1 = time.perf_counter()
+                data_tensor = torch.from_numpy(data).to(self.device)
+                
+                # Run the segmentation model
+                with torch.no_grad():
+                    # print(f"+ "*20 + f"1 {type(data_tensor)}")
+                    pred = self.segmentation(data_tensor, self.deeplabv3)
+                    # print(f"+ "*20 + f"2 {type(pred)}")
+                    plate_tensor = self.post_process(pred, data_tensor.detach().clone())
+                    # print(f"+ "*20 + f"3 {type(plate_tensor)}")
+                    plate_text = self.ocr(plate_tensor)[0]
+                    
+                    
+                # Send the result to the next queue
+                while self.lpr2kr_queue.full():
+                    time.sleep(0.01)
+                self.lpr2kr_queue.put(plate_text)
+                self.count += 1
+                # time.sleep(4.581717184861191 / 40 * 0.05)
+                time_2 = time.perf_counter()
+                self.p_time += time_2 - time_1
+                
+                torch.cuda.empty_cache()
                 
                 del data, data_tensor, pred, plate_tensor, plate_text
                 
@@ -167,7 +171,8 @@ class lprStream(Process):
             content = {
                 "count" : self.count,
                 "time" : self.time_elapsed,
-                "energy" : self.energy
+                "energy" : self.energy,
+                "p_time" : self.p_time,
             }
             with open(self.profile_save_path + ".json", "w") as f:
                 json.dump(content, f, indent=4)

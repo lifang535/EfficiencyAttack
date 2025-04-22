@@ -113,7 +113,7 @@ class lprStream(Process):
             pynvml.nvmlInit()
             self.device_id = 0 if self.device.index is None else self.device.index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
-            
+            self.p_time = 0.0
             self.deeplabv3 = self.create_model()
             self.checkpoint = torch.load(self.model_id, map_location='cpu')
             self.deeplabv3.load_state_dict(self.checkpoint['model'])
@@ -129,7 +129,7 @@ class lprStream(Process):
                         # self.od2lpr_queue.join_thread()
                         break
                     
-                    
+                    time_1 = time.perf_counter()
                     data_tensor = torch.from_numpy(data).to(self.device)
                     
                     # Run the segmentation model
@@ -148,6 +148,8 @@ class lprStream(Process):
                     self.lpr2kr_queue.put(plate_text)
                     self.count += 1
                     torch.cuda.empty_cache()
+                    time_2 = time.perf_counter()
+                    self.p_time = time_2 - time_1
                 
                 except Empty:
                     continue
@@ -167,7 +169,8 @@ class lprStream(Process):
             content = {
                 "count" : self.count,
                 "time" : self.time_elapsed,
-                "energy" : self.energy
+                "energy" : self.energy,
+                "p_time": self.p_time,
             }
             with open(self.profile_save_path + ".json", "w") as f:
                 json.dump(content, f, indent=4)

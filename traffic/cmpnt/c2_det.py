@@ -114,6 +114,7 @@ class odStream(Process):
     def _run(self):
         try:
             self.count = 0.0
+            self.p_time = 0
             self.start_time = time.perf_counter()
             pynvml.nvmlInit()
             self.device_id = 0 if self.device.index is None else self.device.index
@@ -137,10 +138,13 @@ class odStream(Process):
                     continue
                 
                 # data_tensor = torch.from_numpy(data).to(self.device)
+                time_1 = time.perf_counter()
                 if isinstance(data, np.ndarray):
-                    data_tensor = torch.from_numpy(data).to(self.device)
+                    # Convert numpy array to tensor and ensure it's float32
+                    data_tensor = torch.from_numpy(data).float().to(self.device)
                 elif isinstance(data, torch.Tensor):
-                    data_tensor = data.to(self.device)
+                    # Convert existing tensor to float32 if needed
+                    data_tensor = data.float().to(self.device)
                     
                 with torch.no_grad():
                     preds = self.model(data_tensor) 
@@ -185,6 +189,10 @@ class odStream(Process):
                         del cropped_np
                     del  all_indices, merged_box
                         
+                # time.sleep(7.326506948797032 / 100 * 0.05)
+                time_2 = time.perf_counter()
+                self.p_time += (time_2 - time_1)
+                
                 torch.cuda.empty_cache()
                 gc.collect()
                 del data_tensor, preds, output, labels, boxes, face_indices, plate_indices
@@ -202,7 +210,8 @@ class odStream(Process):
             content = {
                 "count" : self.count,
                 "time" : self.time_elapsed,
-                "energy" : self.energy
+                "energy" : self.energy,
+                "p_time" : self.p_time,
             }
             with open(self.profile_save_path + ".json", "w") as f:
                 json.dump(content, f, indent=4)
@@ -556,6 +565,7 @@ class var2_odStream(Process):
     def _run(self):
         try:
             self.count = 0.0
+            self.p_time = 0
             self.start_time = time.perf_counter()
             pynvml.nvmlInit()
             self.device_id = 0 if self.device.index is None else self.device.index
@@ -578,12 +588,14 @@ class var2_odStream(Process):
                 except Empty:
                     time.sleep(0.01)
                     continue
-                
+                time_1 = time.perf_counter()
                 # data_tensor = torch.from_numpy(data).to(self.device)
                 if isinstance(data, np.ndarray):
-                    data_tensor = torch.from_numpy(data).to(self.device)
+                    # Convert numpy array to tensor and ensure it's float32
+                    data_tensor = torch.from_numpy(data).float().to(self.device)
                 elif isinstance(data, torch.Tensor):
-                    data_tensor = data.to(self.device)
+                    # Convert existing tensor to float32 if needed
+                    data_tensor = data.float().to(self.device)
                     
                 with torch.no_grad():
                     preds = self.model(data_tensor) 
@@ -609,7 +621,10 @@ class var2_odStream(Process):
                         self.od2cap_queue.put(cropped_np)
                         del cropped_np
                     del  all_indices, merged_box
-                        
+                    
+                time_2 = time.perf_counter()
+                self.p_time += (time_2 - time_1)
+                
                 torch.cuda.empty_cache()
                 gc.collect()
                 del data_tensor, preds, output, labels, boxes, face_indices, plate_indices
@@ -628,7 +643,8 @@ class var2_odStream(Process):
             content = {
                 "count" : self.count,
                 "time" : self.time_elapsed,
-                "energy" : self.energy
+                "energy" : self.energy,
+                "p_time" : self.p_time,
             }
             with open(self.profile_save_path + ".json", "w") as f:
                 json.dump(content, f, indent=4)

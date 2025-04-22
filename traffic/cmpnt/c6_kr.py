@@ -95,6 +95,7 @@ class krStream(Process):
         try:
             self.count = 0.0
             self.start_time = time.perf_counter()
+            self.p_time = 0.0
             pynvml.nvmlInit()
             self.device_id = 0 if self.device.index is None else self.device.index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
@@ -118,8 +119,12 @@ class krStream(Process):
                             # self.fr2kr_queue.join_thread()
                             logger.info(f"{self.__class__.__name__:<12} : Received end signal from FR")
                         else:
+                            time_1 = time.perf_counter()
+                            # time.sleep(47.08315994916484 / 519 * 0.05)
                             self.process_fr_data(data)
                             self.count += 1
+                            time_2 = time.perf_counter()
+                            self.p_time += time_2 - time_1
                             del data
                     except Empty:
                         pass
@@ -132,8 +137,12 @@ class krStream(Process):
                             # self.lpr2kr_queue.join_thread()
                             logger.info(f"{self.__class__.__name__:<12} : Received end signal from LPR")
                         else:
+                            time_1 = time.perf_counter()
+                            # time.sleep(47.08315994916484 / 519 * 0.05)
                             self.process_lpr_data(data)
                             self.count += 1
+                            time_2 = time.perf_counter()
+                            self.p_time += time_2 - time_1
                             del data
                     except Empty:
                         pass
@@ -156,7 +165,8 @@ class krStream(Process):
             content = {
                 "count" : self.count,
                 "time" : self.time_elapsed,
-                "energy" : self.energy
+                "energy" : self.energy,
+                "p_time" : self.p_time,
             }
             with open(self.profile_save_path + ".json", "w") as f:
                 json.dump(content, f, indent=4)

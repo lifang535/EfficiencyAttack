@@ -79,7 +79,7 @@ class capStream(Process):
             pynvml.nvmlInit()
             self.device_id = 0 if self.device.index is None else self.device.index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
-            
+            self.p_time = 0.0
             self.resize_transform = transforms.Compose([
                 transforms.Resize((224, 224)),
             ])
