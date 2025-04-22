@@ -1,7 +1,7 @@
 #!/bin/bash
 cd ..
 
-# GPU 0 - 同时运行所有任务
+# GPU 0 
 CUDA_VISIBLE_DEVICES=0 bash -c '
 python pipe.py --model_id 0 --algorithm teaspoon --target_idx 0 &
 python pipe.py --model_id 0 --algorithm teaspoon --target_idx 2 &
