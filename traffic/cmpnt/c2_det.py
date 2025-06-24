@@ -20,7 +20,7 @@ import gc
 import pynvml
 import json
 
-
+import torch.nn.functional as F
 
 logging.basicConfig(
     level=logging.INFO,
@@ -611,15 +611,53 @@ class var2_odStream(Process):
                 face_indices = (labels == 0).nonzero(as_tuple=True)[0]
                 plate_indices = (labels == 2).nonzero(as_tuple=True)[0]
                                 
+                                
+                # if len(face_indices) > 0:
+                #     for idx in face_indices:
+                #         if self.valid_bbox(boxes[idx]):
+                #             cropped_tensor = self.new_crop_box(data_tensor, boxes[idx], out_size=(128, 128))
+                #             cropped_np = cropped_tensor.clone().detach().cpu().numpy()
+                #             while self.od2cap_queue.full():
+                #                 time.sleep(0.01)
+                #             self.od2cap_queue.put(cropped_np)
+                
+                # if len(plate_indices) > 0:
+                #     for idx in plate_indices:
+                #         if self.valid_bbox(boxes[idx]):
+                #             cropped_tensor = self.new_crop_box(data_tensor, boxes[idx], out_size=(128, 128))
+                #             cropped_np = cropped_tensor.clone().detach().cpu().numpy()
+                #             while self.od2cap_queue.full():
+                #                 time.sleep(0.01)
+                #             self.od2cap_queue.put(cropped_np)                          
+                                
+                                
+                # cropped_np = data_tensor.detach().cpu().numpy()
+                # while self.od2cap_queue.full():
+                #     time.sleep(0.01)
+                # self.od2cap_queue.put(cropped_np)
+                # del cropped_np
+                # continue
+                
                 if len(face_indices) > 0 or len(plate_indices) > 0:
                     all_indices = torch.cat([face_indices, plate_indices]) if len(face_indices) > 0 and len(plate_indices) > 0 else face_indices if len(face_indices) > 0 else plate_indices
+                # if len(plate_indices) > 0:
+                #     all_indices = plate_indices
+
                     merged_box = self.merge_bbox(all_indices, boxes)
                     if self.valid_bbox(merged_box):
-                        cropped_np = self.crop_box(data_tensor, merged_box)  
+                        # cropped_np = self.crop_box(data_tensor, merged_box)  
+                        cropped_tensor = self.new_crop_box(data_tensor, merged_box, out_size=(128, 128))
+                        cropped_np = cropped_tensor.clone().detach().cpu().numpy()
                         while self.od2cap_queue.full():
                             time.sleep(0.01)
                         self.od2cap_queue.put(cropped_np)
                         del cropped_np
+                    # else:
+                    #     cropped_np = data_tensor.detach().cpu().numpy()
+                    #     while self.od2cap_queue.full():
+                    #         time.sleep(0.01)
+                    #     self.od2cap_queue.put(cropped_np)
+                    #     del cropped_np
                     del  all_indices, merged_box
                     
                 time_2 = time.perf_counter()
@@ -663,7 +701,42 @@ class var2_odStream(Process):
             return cropped_np
         except Exception as e:
             logger.error(f"{self.__class__.__name__:<12} : error in cropping box: {str(e)}")
-    
+
+
+    def new_crop_box(self, data_tensor, box=None, out_size=(128, 128)):
+        try:
+            if box is not None:
+                x1, y1, x2, y2 = box  # 输入box是pixel级坐标
+
+                B, C, H, W = data_tensor.shape
+
+                # 将 pixel 坐标归一化到 [-1, 1]
+                center_x = ((x1 + x2) / 2) / W * 2 - 1
+                center_y = ((y1 + y2) / 2) / H * 2 - 1
+                width = (x2 - x1) / W
+                height = (y2 - y1) / H
+
+                # 构建 affine matrix
+                theta = torch.zeros(B, 2, 3, device=data_tensor.device, dtype=data_tensor.dtype)
+
+                theta[:, 0, 0] = width
+                theta[:, 1, 1] = height
+                theta[:, 0, 2] = center_x
+                theta[:, 1, 2] = center_y
+
+                # out_size是期望输出子图大小 (h,w)
+                grid = F.affine_grid(theta, size=(B, C, out_size[0], out_size[1]), align_corners=False)
+                cropped_tensor = F.grid_sample(data_tensor, grid, align_corners=False)
+
+            else:
+                cropped_tensor = data_tensor
+
+            return cropped_tensor
+
+        except Exception as e:
+            print(f"Error in cropping box: {str(e)}")
+            
+            
     def denormalize(self, tensor):
         """
         Denormalizes a tensor using the provided mean and std.

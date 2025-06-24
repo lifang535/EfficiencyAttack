@@ -10,13 +10,14 @@ path = "../traffic/profile"
 path_var = "../traffic/profile_var"
 
 def calculate_flops(pipeline, num_list):
-    img_num, person_num, car_num, oven_num, girrafe_num = num_list
+    cap_num, person_num, car_num, oven_num, girrafe_num = num_list
     
     # flops of img streaming
     flops_1 = 0.0
     
     # flops of object detection
-    flops_2 = img_num * 136e9
+    # flops_2 = 100 * 136e9
+    flops_2 = 100 * 4.5e9
     
     # flops of face recognition
     flops_3 = person_num * 48.5156e9
@@ -25,7 +26,7 @@ def calculate_flops(pipeline, num_list):
     flops_4 = car_num * 588.722e9
     
     # flops of cap
-    flops_5 = img_num * 1204224
+    flops_5 = cap_num * 1204224
     
     # flops of kr
     flops_6 = person_num * 2562537
@@ -36,21 +37,36 @@ def calculate_flops(pipeline, num_list):
         ret = flops_1 + flops_2 + flops_3 + flops_4 + flops_6
     if pipeline == 2:
         ret = flops_1 + flops_2 + flops_5
-        
+    
     return ret
 
 class model_0:
     def __init__(self):
-        self.teaspoon_tgt_68 = [7.40422e+05, 4.52900e+03, 1.34100e+03, 7.27431e+05, 2.00000e+01]
-        self.phantom_tgt_none = [1.8169e+04, 7.1080e+03, 6.7600e+02, 1.4000e+01, 9.2000e+01]
-        self.teaspoon_tgt_0_2 = [9.70439e+05, 1.87931e+05, 7.77190e+05, 0.00000e+00, 1.88000e+02]
-        self.teaspoon_tgt_2 = [9.56858e+05, 1.79700e+03, 9.44718e+05, 9.00000e+00, 1.80000e+01]
-        self.teaspoon_tgt_23 = [833254.,   1446.,   1008.,      0., 828748.]
-        self.teaspoon_tgt_none = [103163.,   4107.,   6089.,      0.,      0.]
-        self.slowtrack_tgt_none = [103871.,   4060.,   5929.,      0.,      0.]
-        self.teaspoon_tgt_0 = [8.85682e+05, 8.80408e+05, 6.47000e+02, 0.00000e+00, 1.80000e+01]
-        self.overload_tgt_none = [6.850e+04, 4.285e+03, 4.721e+03, 0.000e+00, 1.500e+01]
+        self.clean = [37, 479, 40, 0, 0]
+        # self.teaspoon_tgt_68 = [7.40422e+05, 4.52900e+03, 1.34100e+03, 7.27431e+05, 2.00000e+01]
+        self.phantom_tgt_none = [54, 747, 33, 0, 0]
+        self.teaspoon_tgt_0_2 = [4, 18209.0, 77077.0, 0, 0]
+        self.teaspoon_tgt_2 = [8, 205, 93575, 0, 0]
+        # self.teaspoon_tgt_23 = [833254.,   1446.,   1008.,      0., 828748.]
+        self.teaspoon_tgt_none = [78.,   424.,   603.,      0.,      0.]
+        self.slowtrack_tgt_none = [82,   381,   595.,      0.,      0.]
+        self.teaspoon_tgt_0 = [7, 86686, 47, 0, 0]
+        self.overload_tgt_none = [84, 449, 454, 0, 0]
+        self.unweighted = [0, 11688, 54199, 0, 0]
+        self.weighted = [1, 509, 1082, 0, 0]
     
+class model_4:
+    def __init__(self):
+        self.clean = [38, 189, 16, 0, 0]
+        self.phantom_tgt_none = [24, 3563, 29, 0, 0]
+        self.teaspoon_tgt_0_2 = [4, 86196, 7803, 0, 0]
+        self.teaspoon_tgt_2 = [6, 20, 91116.0, 0, 0]
+        self.teaspoon_tgt_none = [31.,   9141.0,   88.0,      0.,      0.]
+        self.slowtrack_tgt_none = [20,   10285,   2070.,      0.,      0.]
+        self.teaspoon_tgt_0 = [4, 93904, 1, 0, 0]
+        self.overload_tgt_none = [9, 13222, 2072, 0, 0]
+
+        
 class model_1:
     def __init__(self):
         self.teaspoon_tgt_68 = [5.52218e+05, 2.17800e+03, 1.80000e+01, 5.46807e+05, 2.00000e+00]
@@ -77,22 +93,22 @@ class model_2:
         
         
 if __name__ == "__main__":
-    # data_model_0 = model_0()
+    data_model_0 = model_4()
     # data_model_1 = model_1()
     # data_model_2 = model_2()
-    # attrs = {k: v for k, v in vars(data_model_0).items() if not callable(v)}
-    # print("=" * 80)
-    # print("\n" + "pipeline: model 0" + "\n")
-    # flops_values = {}
-    # for k, v in attrs.items():
-    #     flops_values[k] = calculate_flops(1, v)
-    # max_flops = max(flops_values.values())
-    # for k, flops in flops_values.items():
-    #     if flops == max_flops:
-    #         print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
-    #     else:
-    #         print(f"{k:<19}: "  f"{str(flops):>30}")
-    # print("\n" + "=" * 80 + "\n")
+    attrs = {k: v for k, v in vars(data_model_0).items() if not callable(v)}
+    print("=" * 80)
+    print("\n" + "pipeline: model 0" + "\n")
+    flops_values = {}
+    for k, v in attrs.items():
+        flops_values[k] = calculate_flops(1, v)
+    max_flops = max(flops_values.values())
+    for k, flops in flops_values.items():
+        if flops == max_flops:
+            print(f"{k:<19}: "  f"* {str(flops):>28}")  # Reduce left padding by 1 to account for the asterisk
+        else:
+            print(f"{k:<19}: "  f"{str(flops):>30}")
+    print("\n" + "=" * 80 + "\n")
 
     # attrs = {k: v for k, v in vars(data_model_1).items() if not callable(v)}
     # print("=" * 80)
@@ -164,12 +180,12 @@ if __name__ == "__main__":
     #         print(f"{k:<19}: "  f"{str(flops):>30}")
     # print("\n" + "=" * 80 + "\n")
     
-    res = calculate_flops(0, [100, 2253, 2358, 0, 0])
-    print(res)
+    # res = calculate_flops(0, [100, 2253, 2358, 0, 0])
+    # print(res)
     
     # 90125378699780.0
     # 4262350195141400.0 label 0
     
     # 5.536341434374249e+16 label 2
     # 4.62185210460884e+16 label 0, 2
-    print(1511118016618261.0 / 90125378699780.0)
+    # print(1511118016618261.0 / 90125378699780.0)

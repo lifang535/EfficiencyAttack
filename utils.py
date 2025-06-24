@@ -31,6 +31,7 @@ def move_to_cpu(data):
         return data
     
 def parse_example(example):
+
     image_id = example["image_id"]
     image = example["image"]
     width = example["width"]
@@ -42,6 +43,33 @@ def parse_example(example):
     
     return image_id, image, width, height, bbox_id, category, bbox, area
 
+def parse_batch_examples(examples):
+    
+    result = {
+        "image_id":   [],
+        "image":      [],
+        "width":      [],
+        "height":     [],
+        "bbox_id":    [],
+        "category":   [],
+        "bbox":       [],
+        "area":       []
+    }
+    
+    for ex in examples:
+        image_id, image, width, height, bbox_id, category, bbox, area = parse_example(ex)
+        if image.mode != "RGB":
+            image = image.convert("RGB")
+        result["image_id"].append(image_id)
+        result["image"].append(image)
+        result["width"].append(width)
+        result["height"].append(height)
+        result["bbox_id"].append(bbox_id)
+        result["category"].append(category)
+        result["bbox"].append(bbox)
+        result["area"].append(area)
+    
+    return result
 
 def compute_iou(box1, box2):
     """
@@ -94,3 +122,6 @@ def denormalize(tensor):
     std = torch.tensor(std).view(-1, 1, 1).to(tensor.device)
     tensor = tensor * std + mean
     return tensor
+
+def batch_denormalize(tensor_list):
+    return [denormalize(t) for t in tensor_list]

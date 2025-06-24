@@ -12,10 +12,11 @@ import os
 from torchvision import transforms
 from transformers import AutoModelForCausalLM # microsoft/git-base
 from transformers import AutoProcessor
+from transformers import AutoProcessor, AutoModelForImageTextToText
 from legacy_flops import FLOPs_DECORATOR, write_profile, write_profile_lt
 from PIL import Image
 import gc
-
+import torch.nn.functional as F
 import pynvml
 import json
 
@@ -37,7 +38,7 @@ class capStream(Process):
         self.device = device         
         self.model_id = None
     
-    def set_config(self, model_id="microsoft/git-base", profile_save_path = None):
+    def set_config(self, model_id="Salesforce/blip-image-captioning-base", profile_save_path = None):
         self.model_id = model_id
         self.profile_save_path = profile_save_path + f"/{self.__class__.__name__}"
 
@@ -86,7 +87,9 @@ class capStream(Process):
             ])
             
             self.processor = AutoProcessor.from_pretrained(self.model_id, use_fast=True)
-            self.model = AutoModelForCausalLM.from_pretrained(self.model_id).to(self.device) 
+            # self.model = AutoModelForCausalLM.from_pretrained(self.model_id).to(self.device) 
+            self.model = AutoModelForImageTextToText.from_pretrained(self.model_id).to(self.device)
+
             self.model.eval()
             logger.info(f"{self.__class__.__name__:<12} : CAP model loaded, model_id = {self.model_id}")
             logger.info(f"{self.__class__.__name__:<12} : started")
@@ -100,11 +103,14 @@ class capStream(Process):
                 except Empty:
                     continue
                 
-                time_1 = time.perf_counter()
+                
                 data_tensor = torch.from_numpy(data).to(self.device)
                 
                 with torch.no_grad():
-                    caption = self.inference(data_tensor)
+                    # caption = self.inference(data_tensor)
+                    time_1 = time.perf_counter()
+                    caption = self.new_inference(data_tensor)
+                    time_2 = time.perf_counter()
                     
                 while self.cap2lm_queue.full():
                     time.sleep(0.01)
@@ -112,7 +118,7 @@ class capStream(Process):
                 self.count += 1
                 
                 # time.sleep(7.497696879552677 / 37 * 0.05)
-                time_2 = time.perf_counter()
+                
                 self.p_time += (time_2 - time_1)
                 
                 torch.cuda.empty_cache()
@@ -191,3 +197,38 @@ class capStream(Process):
         
         return generated_caption
         
+    def new_inference(self, data_tensor):
+        if isinstance(data_tensor, Image.Image):
+            # Process PIL Image
+            inputs = self.processor(images=data_tensor, return_tensors="pt").to(self.device)
+            pixel_values = inputs.pixel_values
+        elif isinstance(data_tensor, torch.Tensor):
+            # Process torch Tensor directly
+            pixel_values = data_tensor.clone()
+        else:
+            raise TypeError("Input to the captioning model must be a PIL Image or a torch.Tensor")
+
+        pixel_values = F.interpolate(pixel_values.to(self.device), size=(224, 224), mode='bilinear', align_corners=False)
+        
+        mean = torch.tensor([0.5, 0.5, 0.5], device=pixel_values.device).view(1,3,1,1)
+        std = torch.tensor([0.5, 0.5, 0.5], device=pixel_values.device).view(1,3,1,1)
+        pixel_values = (pixel_values - mean) / std
+        inputs = {"pixel_values": pixel_values.to(self.device)}
+        
+        prompt = "a photo of"
+        text_inputs = self.processor(text=prompt, return_tensors="pt").to(self.device)
+        generated_ids = self.model.generate(
+            pixel_values=inputs["pixel_values"],
+            input_ids=text_inputs["input_ids"],
+            attention_mask=text_inputs["attention_mask"],
+            max_length=60,
+            num_beams=5,
+            return_dict_in_generate=True,
+            output_hidden_states=True
+        )
+        
+        # generated_ids = self.model.generate(pixel_values=pixel_values, max_length=60)
+        generated_caption = self.processor.batch_decode(generated_ids.sequences, skip_special_tokens=True)[0]
+        # generated_caption = self.processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        print(generated_caption)
+        return generated_caption

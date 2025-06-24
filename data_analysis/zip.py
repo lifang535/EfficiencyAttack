@@ -23,6 +23,10 @@ dirs = [
     "/home/ubuntu/tingxi/saved/model_0/teaspoon_tgt_72",
     "/home/ubuntu/tingxi/saved/model_0/teaspoon_tgt_20_23",
 ]
+
+dirs = [
+    "/home/ubuntu/tingxi/EfficiencyAttack/saved/clean",
+]
 def zipping(directory):
     folder_name = os.path.basename(os.path.abspath(directory))
     zip_filename = f"{folder_name}.zip"

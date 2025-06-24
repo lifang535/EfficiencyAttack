@@ -39,3 +39,17 @@ model_v2.pth
 
 # exception
 !pipeline_traffic/face_embeddings/.gitkeep
+
+ssh-keygen -t ed25519 -C "your-email@example.com"
+###
+
+case_study/
+data_analysis/
+ablation/
+profileyolo/
+rq2_stability/
+savedyolo/
+approach_*/
+profile*/
+bottleneck/
+

@@ -5,7 +5,7 @@ import logging
 import json
 from datetime import datetime
 import os
-
+import pynvml
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,6 +30,12 @@ class QueueWatch(Process):
         self.sleep_time = sleep_time
         
     def run(self):
+        pynvml.nvmlInit()
+        self.device_id = 0 
+        self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
+        count = 0
+        max_count = 120
+        power_list = []
         while not self.stop_event.is_set():
             string = ""
             qsize_sum = 0
@@ -57,6 +63,13 @@ class QueueWatch(Process):
             logger.info(string)
             time.sleep(self.sleep_time)
                 
+            if count <= max_count:
+                count += 1
+                power = pynvml.nvmlDeviceGetPowerUsage(self.handle) / 1000
+                power_list.append(power)
+            else:
+                print("="*80 + "> Joule/second", sum(power_list) / len(power_list))
+                
             if sum(self.qsize_buffer) == 0:
                 logger.info(f"All queues empty, job done")
                 
@@ -70,7 +83,7 @@ class QueueWatch(Process):
                     except Exception as e:
                         logger.error(f"Failed to write to {dest_path}: {e}")
                         
-                        
+                print("="*80 + "> Joule/second", sum(power_list) / len(power_list))
                 self.stop_event.set()
             
 

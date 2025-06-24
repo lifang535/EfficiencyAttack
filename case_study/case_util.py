@@ -17,6 +17,8 @@ import math
 sys.path.append("..")
 sys.path.append("./CVPR22_NICGSlowDown")
 
+adam_optim = optim.Adam
+
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -146,16 +148,36 @@ def valid_bbox(box):
     except Exception as e:
         return False
 
-def crop_box(data_tensor, box=None):
+def crop_box(data_tensor, box=None, out_size=(128, 128)):
     try:
         if box is not None:
-            x1, y1, x2, y2 = box
-            height, width = data_tensor.shape[2], data_tensor.shape[3]
-            cropped_tensor = data_tensor[:, :, int(y1):int(y2), int(x1):int(x2)].clone()
+            x1, y1, x2, y2 = box  # 输入box是pixel级坐标
+
+            B, C, H, W = data_tensor.shape
+
+            # 将 pixel 坐标归一化到 [-1, 1]
+            center_x = ((x1 + x2) / 2) / W * 2 - 1
+            center_y = ((y1 + y2) / 2) / H * 2 - 1
+            width = (x2 - x1) / W
+            height = (y2 - y1) / H
+
+            # 构建 affine matrix
+            theta = torch.zeros(B, 2, 3, device=data_tensor.device, dtype=data_tensor.dtype)
+
+            theta[:, 0, 0] = width
+            theta[:, 1, 1] = height
+            theta[:, 0, 2] = center_x
+            theta[:, 1, 2] = center_y
+
+            # out_size是期望输出子图大小 (h,w)
+            grid = F.affine_grid(theta, size=(B, C, out_size[0], out_size[1]), align_corners=False)
+            cropped_tensor = F.grid_sample(data_tensor, grid, align_corners=False)
+
         else:
-            cropped_tensor = data_tensor.clone()
-        # cropped_np = cropped_tensor.cpu().numpy()
+            cropped_tensor = data_tensor
+
         return cropped_tensor
+
     except Exception as e:
         print(f"Error in cropping box: {str(e)}")
             
@@ -176,15 +198,18 @@ def inference(image_tensor, od_model, od_processor, ic_model, ic_processor, devi
         all_indices = torch.cat([face_indices, plate_indices]) if len(face_indices) > 0 and len(plate_indices) > 0 else face_indices if len(face_indices) > 0 else plate_indices
         merged_box = merge_bbox(all_indices, boxes, device)
         if valid_bbox(merged_box):
-            cropped_tensor = crop_box(image_tensor, merged_box)  
-
+            cropped_tensor = crop_box(image_tensor, merged_box) 
+             
             pixel_values = F.interpolate(cropped_tensor, size=(224, 224), mode='bilinear', align_corners=False)
             
-            inputs = ic_processor(images=pixel_values, return_tensors="pt").to(device)
+            mean = torch.tensor([0.5, 0.5, 0.5], device=pixel_values.device).view(1,3,1,1)
+            std = torch.tensor([0.5, 0.5, 0.5], device=pixel_values.device).view(1,3,1,1)
+            pixel_values = (pixel_values - mean) / std
+            inputs = {"pixel_values": pixel_values}
+            
             prompt = "a photo of"
             text_inputs = ic_processor(text=prompt, return_tensors="pt").to(device)
             
-            # First get the full model output to access logits
             ic_output = ic_model(
                 pixel_values=inputs["pixel_values"],
                 input_ids=text_inputs["input_ids"],
@@ -192,28 +217,41 @@ def inference(image_tensor, od_model, od_processor, ic_model, ic_processor, devi
                 return_dict=True,
                 output_hidden_states=True,
             )
-                        
-            # Then generate the caption properly
-            generation_output = ic_model.generate(
-                pixel_values=inputs["pixel_values"].clone(),
-                input_ids=text_inputs["input_ids"].clone(),
-                attention_mask=text_inputs["attention_mask"].clone(),
-                do_sample=True,
-                top_p=0.9,              
-                top_k=50,               
-                max_new_tokens=512,      
-                temperature=1,         
-                num_beams=1,          
-                min_length=10,          
-                repetition_penalty=1,
-                early_stopping=False,
-                output_scores=True,
+            
+            generated_ids = ic_model.generate(
+                pixel_values=inputs["pixel_values"].detach().clone(),
+                input_ids=text_inputs["input_ids"].detach().clone(),
+                attention_mask=text_inputs["attention_mask"],
+                max_length=60,
+                num_beams=5,
                 return_dict_in_generate=True,
                 output_hidden_states=True
             )
             
-            generated_ids = generation_output.sequences
-            # scores = generation_output.scores
+            # generated_ids = self.model.generate(pixel_values=pixel_values, max_length=60)
+            caption = ic_processor.batch_decode(generated_ids.sequences, skip_special_tokens=True)[0]
+            return (od_output, od_pred, caption, ic_output)
+                        
+            # # Then generate the caption properly
+            # generation_output = ic_model.generate(
+            #     pixel_values=inputs["pixel_values"].clone(),
+            #     input_ids=text_inputs["input_ids"].clone(),
+            #     attention_mask=text_inputs["attention_mask"].clone(),
+            #     do_sample=True,
+            #     top_p=0.9,              
+            #     top_k=50,               
+            #     max_new_tokens=512,      
+            #     temperature=1,         
+            #     num_beams=1,          
+            #     min_length=10,          
+            #     repetition_penalty=1,
+            #     early_stopping=False,
+            #     output_scores=True,
+            #     return_dict_in_generate=True,
+            #     output_hidden_states=True
+            # )
+            
+            # generated_ids = generation_output.sequences
             caption = ic_processor.tokenizer.batch_decode(generated_ids, skip_special_tokens=False)[0]
 
             return (od_output, od_pred, caption, generation_output)
@@ -279,32 +317,33 @@ def od_loss_function(od_output, od_pred, target_size):
     sel_height = height.clone()
     sel_width = width.clone()
     sel_aaa = (sel_width/target_size[0][0]) * (sel_height/target_size[0][1])
-    loss_area = torch.sum(sel_aaa) / (len(logits) + 1)
+    loss_area = torch.sum(sel_aaa) / (len(logits) + 1) * -1.0
     return loss_cls, loss_area
     
 def ic_loss_function(ic_output):
-    logits = torch.cat(ic_output.scores, dim=0) # the logits here is in fact scores = softmax(logits)
+    # logits = torch.cat(ic_output.scores, dim=0) # the logits here is in fact scores = softmax(logits)
+    logits = ic_output.logits.squeeze()
     logits = logits + 1e-9
-    hidden_states = ic_output.hidden_states
     # image_embeds = ic_output.image_embeds
     # last_hidden_state = ic_output.last_hidden_state
+    logits[logits == -float('inf')] = -30  # safe replacement
     
-    processed_states = []
-    for layer_idx in range(len(hidden_states)):
-        for sublayer_idx in range(len(hidden_states[layer_idx])):
-            tensor = hidden_states[layer_idx][sublayer_idx][0]
-            if tensor.shape[0] == 1:
-                processed_states.append(tensor)
-
+    # processed_states = []
+    # for layer_idx in range(len(hidden_states)):
+    #     for sublayer_idx in range(len(hidden_states[layer_idx])):
+    #         tensor = hidden_states[layer_idx][sublayer_idx][0]
+    #         if tensor.shape[0] == 1:
+    #             processed_states.append(tensor)
     
-    stacked_states = torch.stack(processed_states, dim=0).float()
+    hidden_states = ic_output.hidden_states
+    stacked_states = torch.stack(hidden_states, dim=0).float()
     hidden_states = torch.abs(stacked_states)
     hidden_states = hidden_states.reshape(-1, hidden_states.shape[-1])
     loss_diversity = - torch.norm(hidden_states, p='nuc') 
     
 
     uni_distribution = (torch.ones(logits.shape) / logits.shape[1]).to(logits.device)
-    loss_uncertainty = F.kl_div(torch.softmax(logits, dim=1), uni_distribution, reduction='sum') 
+    loss_uncertainty = F.kl_div(logits.log_softmax(dim=1), uni_distribution, reduction='sum') 
     
     logits = torch.softmax(logits, dim=1)
     eos_token_id = 102 # word_map['[SEP]'] == 102
@@ -316,7 +355,7 @@ def ic_loss_function(ic_output):
     # loss_diversity = - torch.norm(hidden_states, p='nuc') 
 
     return loss_uncertainty, loss_eos, loss_diversity
-    
+
 def clamp(delta, clean_imgs):
     clamp_imgs = (delta + clean_imgs).clamp(0, 1)
     clamp_delta = clamp_imgs - clean_imgs
@@ -324,18 +363,22 @@ def clamp(delta, clean_imgs):
     
 def run_attack(image_tensor, ic_model, od_model, ic_processor, od_processor, args, device):
     loss_name = ["cls loss", "area_loss", "uncertainty loss", "eos loss", "diversity loss"]
-    delta = torch.randn_like(image_tensor, requires_grad=True)
+    delta = torch.zeros_like(image_tensor, requires_grad=True)
     target_size = [image_tensor.shape[2:] for _ in range(1)]
     verbose_len, verbose_energy, verbose_latency = 0, 0, 0
     verbose_len_list, verbose_energy_list, verbose_latency_list, ori_latency_list, ori_energy_list, ori_len_list = [],[],[],[],[],[]
 
     tdx = 0
-    for counter in range(args.iter):
+    for counter in tqdm(range(args.iter), desc="Attack Iteration"):
         result = inference(image_tensor + delta, od_model, od_processor, ic_model, ic_processor, device)
         # result = train(image_tensor + delta, od_model, od_processor, ic_model, ic_processor, device)
         if len(result) == 4:
             od_output, od_pred, caption, ic_output = result
             loss_uncertainty, loss_eos, loss_diversity = ic_loss_function(ic_output)
+                        
+            if loss_diversity is None:
+                loss_diversity = torch.tensor(0.0).to(device)
+                
             loss_cls, loss_area = od_loss_function(od_output, od_pred, target_size) 
             loss_cls_value = loss_cls.detach().clone()
             loss_area_value = loss_area.detach().clone()
@@ -357,14 +400,16 @@ def run_attack(image_tensor, ic_model, od_model, ic_processor, od_processor, arg
                 lambda1 = 0.9 * last_lambda1 + 0.1 * cur_lambda1
                 lambda2 = 0.9 * last_lambda2 + 0.1 * cur_lambda2
             last_lambda1, last_lambda2 = lambda1, lambda2  
-            loss = loss_uncertainty + \
-                   lambda1 * loss_eos + \
-                   lambda2 * loss_diversity + \
-                   loss_cls + \
-                   loss_area
+            # loss = loss_uncertainty + \
+            #        lambda1 * loss_eos + \
+            #        lambda2 * loss_diversity + \
+            #        loss_cls + \
+            #        loss_area
             od_loss = loss_cls + loss_area
-            ic_loss = loss_uncertainty + lambda1 * loss_eos + lambda2 * loss_diversity
-            loss = (od_loss * 500.0 + ic_loss * 8.0) / (500.0 + 8.0)
+            ic_loss = loss_uncertainty + lambda1 * loss_eos 
+            
+            loss = (od_loss * 1.3 + ic_loss * 12) / (1.3 + 12)
+            
             # loss = loss_cls + loss_eos
             loss_list = [loss_cls_value.item(), loss_area_value.item(), loss_uncertainty_value.item(), loss_eos_value.item() * lambda1, loss_diversity_value.item() * lambda2]
             
@@ -373,6 +418,7 @@ def run_attack(image_tensor, ic_model, od_model, ic_processor, od_processor, arg
             
             loss.backward(retain_graph=False)   
             delta.data = delta - args.step_size * torch.sign(delta.grad.detach())
+            # delta.data = delta - args.step_size * delta.grad.detach()
             # delta.grad = delta.grad / (torch.norm(delta.grad,p=2) + 1e-20)
             # delta.data = -1.5 * delta.grad + delta.data
             tdx += 1
@@ -395,18 +441,7 @@ def run_attack(image_tensor, ic_model, od_model, ic_processor, od_processor, arg
         delta.data = clamp(delta, image_tensor).clamp(-args.epsilon, args.epsilon)
         delta.grad.zero_()
         
-        verbose_len_list.append(len(caption.split(' ')))
-        if len(caption.split(' ')) > verbose_len:
-            verbose_len = len(caption.split(' '))
-            
-        string = ""
-        for i in range(len(loss_list)):
-            string += f"{loss_name[i]:<15}: {loss_list[i]:4.2f} |"
-        string += f"caption length: {len(caption.split(' ')):>4d} | "
-        string += f"iter: {counter:>4d}"
-        print(string)
-        
-    print(verbose_len)
+    # caption here is a legacy variable, not used in the final version
     return image_tensor + delta, caption
     
 def run_on_gpu(rank, args):
@@ -425,15 +460,15 @@ def run_on_gpu(rank, args):
         image_tensor = denormalize(image)
 
         adv_image, caption = run_attack(image_tensor, ic_model, od_model, ic_processor, od_processor, args, device)
-        os.makedirs(f"./adv/gpu_{rank}", exist_ok=True)
-        ultra_fast_save(adv_image, f"./adv/gpu_{rank}/img_{image_id}.pt")
+        os.makedirs(f"./adv/", exist_ok=True)
+        ultra_fast_save(adv_image, f"./adv/img_{image_id}.pt")
     
 set_seed(0) 
 torch.autograd.set_detect_anomaly(True)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Attack')
-    parser.add_argument('--iter', default=1000, type=int)
+    parser.add_argument('--iter', default=100, type=int)
     parser.add_argument('--step_size', default=0.0039, type=float)
     parser.add_argument('--epsilon', default=0.032 , type=float)
     parser.add_argument('--total_size', default=100, type=int)

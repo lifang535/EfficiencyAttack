@@ -1,9 +1,7 @@
 from cmpnt.c1_img import imgStream
 from cmpnt.c2_det import odStream, var_odStream, var2_odStream
-from cmpnt.c3_fr import frStream
-from cmpnt.c4_lpr import lprStream
+
 from cmpnt.c5_cap import capStream
-from cmpnt.c6_kr import krStream
 from cmpnt.c7_udp import udpStream
 from cleanup import cleanup_resources
 import os
@@ -19,13 +17,7 @@ from legacy_flops import summary
 
 parser = argparse.ArgumentParser(description="Traffic Monitoring Pipeline")
 parser.add_argument("--model_id", type=int, default=0, help="Model ID for object detection")
-parser.add_argument('--algorithm', type=str, default=None, choices=["overload", 
-                                                                    "slowtrack", 
-                                                                    "phantom", 
-                                                                    "teaspoon", 
-                                                                    "clean",
-                                                                    "weighted",
-                                                                    "unweighted"], help="algorithm not found")
+parser.add_argument('--algorithm', type=str, default=None, help="algorithm not found")
 parser.add_argument('--target_idx', type=int, nargs='+', default=None, help="List of numbers, unavailable for baseline")
 parser.add_argument("--ps_path", type=str, default="./profile_var_2", help="Path to save profile data")
 parser.add_argument("--eval_size", type=int, default=100, help="num of images to evaluate")
@@ -54,12 +46,12 @@ if algorithm in ["tea_400","tea_100","norm","area","norm_and_area","eps_2","eps_
 if algorithm == "clean":
     input_dir = "../saved/clean"
     ps_path = os.path.join(args.ps_path, "clean")
-elif algorithm == "weighted":
-    input_dir = "../case_study/adv_weighted"
-    ps_path = os.path.join(args.ps_path, "weighted")
-elif algorithm == "unweighted":
-    input_dir = "../case_study/adv_unweighted"
-    ps_path = os.path.join(args.ps_path, "unweighted")
+elif algorithm in ["adv", "adv_unweighted", "adv_cap", "adv_od"]:
+    input_dir = "../case_study/" + algorithm
+    ps_path = os.path.join(args.ps_path, algorithm)
+# elif algorithm == "unweighted":
+#     input_dir = "../case_study/adv_unweighted"
+#     ps_path = os.path.join(args.ps_path, "unweighted")
 elif algorithm is None:
     input_dir = "./test_src"
     ps_path = "./test_profile"
