@@ -1,0 +1,1 @@
+deepspeed --num_gpus 1 object_detection.py
